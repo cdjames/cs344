@@ -1,0 +1,81 @@
+#!/bin/bash
+
+PROGNAME=$(basename $0)
+datafilepath="datafile$$"
+
+exit_prog() {
+	#-----------
+	# An error outputting function
+	# Uses ideas and code from http://www.linuxcommand.org/wss0150.php
+	#
+	# Accepts one argument
+	#-----------
+
+	# >$2 outputs to stderr
+	>&2 echo $1
+	exit 1
+}
+
+usage() {
+	exit_prog "Usage: stats {-rows|-cols} [file]"
+}
+
+
+bad_file() {
+	exit_prog "${PROGNAME}: cannot read '$1'"
+}
+
+check_opts() {
+	if [[ $1 == -r* ]] || [[ $1 == -c* ]]; then
+		return
+	fi
+	usage
+}
+
+choose_path() {
+	case $1 in
+		"-r"*)
+			# run rows version of calculation
+			echo "-r!"
+			;;
+		"-c"*)
+			# run cols version
+			echo "-c!"
+			;;
+		*) # bad input
+			usage
+			;;
+
+	esac
+}
+
+clean_up() {
+	if [ -e "datafile$$" ]; then
+		rm -f "datafile$$"
+	fi
+}
+
+# figure out whether you have a file or stdin
+case $# in
+1) # there is only one arg
+	check_opts $1
+	cat > "$datafilepath"
+	;;
+2) # 2 args
+	check_opts $1
+	if [ -e $2 ]; then # file exists
+		#statements
+		datafilepath=$2
+	else
+		bad_file $2
+	fi
+	;;
+*) # 0 or >2 args
+	usage
+	;;
+esac
+
+choose_path $1
+clean_up
+
+exit 0
