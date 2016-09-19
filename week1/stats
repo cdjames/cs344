@@ -76,21 +76,27 @@ do_calculations() {
 	inner_reps=$3
 	inner_inc=$4
 	divisor=$5
+	mednum=$(expr \( $divisor + $6 \) / 2)
+	echo "mednum=$mednum"
 	for (( i = 0; i < outer_reps; i+=outer_inc )); do
 		total=0
-		thisline=()
+		thisline=""
 		# reassemble line
 		for (( x = 0; x < inner_reps; x+=inner_inc )); do
 			idx=$(expr $i + $x)
-			thisline[$x]=${allfields[$idx]}
+			# thisline[$x]=${allfields[$idx]}
+			thisline="$thisline\n${allfields[$idx]}"
 			total=$(expr ${allfields[$idx]} + $total)
 		done
+		
 		# figure average for thisline and store in averages
 		averages[$count]=$(avg $total $divisor)
 		echo "avgs[$count] = ${averages[$count]} "
 		((count++))
 		# process median
-		# ...
+		echo -e "$(echo -e $thisline | awk '$1=$1' | sort -gb | tr "\n" " ")\n"
+		median=$(echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" "\t" | cut -f $mednum)
+		echo "median=$median"
 		# if [[((idx-i)) == (())]]
 		echo "total=$total"
 	done
@@ -128,7 +134,6 @@ while IFS=$'\t' read -ra fields
 do
 	for i in "${fields[@]}"; do
 		allfields[ct]=$i
-		# echo "${allfields[ct]}"
 		((ct++))
 	done
 done < $datafilepath
@@ -138,11 +143,11 @@ case $1 in
 	"-r"*) # calc rows
 		# run rows version of calculation
 		echo "calc rows"
-		do_calculations $tot_fields $fct $fct 1 $fct
+		do_calculations $tot_fields $fct $fct 1 $fct 1
 		;;
 	"-c"*) # calc cols
 		echo "calc cols"
-		do_calculations $fct 1 $tot_fields $fct $lc
+		do_calculations $fct 1 $tot_fields $fct $lc 2
 		;;
 	*) # bad input
 		usage
