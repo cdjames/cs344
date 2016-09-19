@@ -4,6 +4,7 @@ PROGNAME=$(basename $0)
 datafilepath="datafile$$"
 averages=()
 medians=()
+lines=()
 
 exit_prog() {
 	#-----------
@@ -86,9 +87,12 @@ esac
 lc=$(wc -l $datafilepath | cut -d \t -f 1)
 echo "$lc"
 
-while IFS=$'\t' read -ra line
+ct=0
+while IFS=$'\t' read -ra fields
 do
-	echo "${line[0]}"
+	echo "${fields[$ct]}"
+	lines[$ct]=fields
+	((ct++))
 done < $datafilepath
 
 choose_path $1
