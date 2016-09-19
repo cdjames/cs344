@@ -2,6 +2,8 @@
 
 PROGNAME=$(basename $0)
 datafilepath="datafile$$"
+averages=()
+medians=()
 
 exit_prog() {
 	#-----------
@@ -49,11 +51,17 @@ choose_path() {
 	esac
 }
 
+
+
 clean_up() {
 	if [ -e "datafile$$" ]; then
 		rm -f "datafile$$"
 	fi
+	exit
 }
+
+# make sure you clean up if the program is interrupted
+trap clean_up SIGINT SIGTERM SIGHUP
 
 # figure out whether you have a file or stdin
 case $# in
@@ -75,7 +83,13 @@ case $# in
 	;;
 esac
 
+lc=$(wc -l $datafilepath | cut -d \t -f 1)
+echo "$lc"
+
+while IFS=$'\t' read -ra line
+do
+	echo "${line[0]}"
+done < $datafilepath
+
 choose_path $1
 clean_up
-
-exit 0
