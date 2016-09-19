@@ -4,7 +4,7 @@ PROGNAME=$(basename $0)
 datafilepath="datafile$$"
 averages=()
 medians=()
-lines=()
+allfields=()
 
 exit_prog() {
 	#-----------
@@ -52,13 +52,48 @@ choose_path() {
 	esac
 }
 
-
-
 clean_up() {
 	if [ -e "datafile$$" ]; then
 		rm -f "datafile$$"
 	fi
 	exit
+}
+
+avg() {
+	local total=$1
+	local fields=$2
+	echo "$(expr $total / $fields)"
+}
+
+# get_line() {
+
+# }
+
+do_calculations() {
+	count=0
+	outer_reps=$1
+	outer_inc=$2
+	inner_reps=$3
+	inner_inc=$4
+	divisor=$5
+	for (( i = 0; i < outer_reps; i+=outer_inc )); do
+		total=0
+		thisline=()
+		# reassemble line
+		for (( x = 0; x < inner_reps; x+=inner_inc )); do
+			idx=$(expr $i + $x)
+			thisline[$x]=${allfields[$idx]}
+			total=$(expr ${allfields[$idx]} + $total)
+		done
+		# figure average for thisline and store in averages
+		averages[$count]=$(avg $total $divisor)
+		echo "avgs[$count] = ${averages[$count]} "
+		((count++))
+		# process median
+		# ...
+		# if [[((idx-i)) == (())]]
+		echo "total=$total"
+	done
 }
 
 # make sure you clean up if the program is interrupted
@@ -84,16 +119,34 @@ case $# in
 	;;
 esac
 
-lc=$(wc -l $datafilepath | cut -d \t -f 1)
-echo "$lc"
+lc=$(cat $datafilepath | wc -l) # line count
+fct=$(head -n 1 $datafilepath | wc -w) # field count
 
+# put all fields from file into an array
 ct=0
 while IFS=$'\t' read -ra fields
 do
-	echo "${fields[$ct]}"
-	lines[$ct]=fields
-	((ct++))
+	for i in "${fields[@]}"; do
+		allfields[ct]=$i
+		# echo "${allfields[ct]}"
+		((ct++))
+	done
 done < $datafilepath
 
-choose_path $1
+tot_fields=$(expr $lc \* $fct)
+case $1 in
+	"-r"*) # calc rows
+		# run rows version of calculation
+		echo "calc rows"
+		do_calculations $tot_fields $fct $fct 1 $fct
+		;;
+	"-c"*) # calc cols
+		echo "calc cols"
+		do_calculations $fct 1 $tot_fields $fct $lc
+		;;
+	*) # bad input
+		usage
+		;;
+esac
+
 clean_up
