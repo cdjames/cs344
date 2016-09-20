@@ -62,7 +62,12 @@ clean_up() {
 avg() {
 	local total=$1
 	local fields=$2
-	echo "$(expr $total / $fields)"
+	local average=$(( $total / $fields ))
+	# see if number needs to be rounded
+	# if [ $(( $total % $fields )) ]; then
+	# 	((average++))
+	# fi
+	echo "$average"
 }
 
 # get_line() {
@@ -76,8 +81,11 @@ do_calculations() {
 	inner_reps=$3
 	inner_inc=$4
 	divisor=$5
-	mednum=$(expr \( $divisor + $6 \) / 2)
-	echo "mednum=$mednum"
+	roundup=1
+	if [[ $(( $divisor % 2 )) ]]; then
+		roundup=2
+	fi
+	mednum=$(expr \( $divisor + $roundup \) / 2)
 	for (( i = 0; i < outer_reps; i+=outer_inc )); do
 		total=0
 		thisline=""
@@ -91,15 +99,37 @@ do_calculations() {
 		
 		# figure average for thisline and store in averages
 		averages[$count]=$(avg $total $divisor)
-		echo "avgs[$count] = ${averages[$count]} "
-		((count++))
+		# echo "avgs[$count] = ${averages[$count]} "
+		
 		# process median
-		echo -e "$(echo -e $thisline | awk '$1=$1' | sort -gb | tr "\n" " ")\n"
-		median=$(echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" "\t" | cut -f $mednum)
-		echo "median=$median"
-		# if [[((idx-i)) == (())]]
-		echo "total=$total"
+		# awk strips whitespace
+		# echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" " "
+		medians[$count]=$(echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" "\t" | cut -f $mednum)
+		# echo "median=${medians[$count]}"
+		# echo "count=$count"
+		((count++))
+		# echo "total=$total"
 	done
+}
+
+printrows() {
+	echo "Averages Medians"
+	for (( i = 0; i < ${#averages[@]}; i++ )); do
+		echo -e "${averages[$i]}\t ${medians[$i]}"
+	done
+}
+
+printcols() {
+	echo "Averages:"
+	for (( i = 0; i < ${#averages[@]}; i++ )); do
+		printf "%d\t" ${averages[$i]}
+	done
+	echo
+	echo "Medians:"
+	for (( i = 0; i < ${#medians[@]}; i++ )); do
+		printf "%d\t" ${medians[$i]}
+	done
+	echo
 }
 
 # make sure you clean up if the program is interrupted
@@ -138,16 +168,16 @@ do
 	done
 done < $datafilepath
 
+## do calculations for either rows or columns
 tot_fields=$(expr $lc \* $fct)
 case $1 in
 	"-r"*) # calc rows
-		# run rows version of calculation
-		echo "calc rows"
-		do_calculations $tot_fields $fct $fct 1 $fct 1
+		do_calculations $tot_fields $fct $fct 1 $fct
+		printrows
 		;;
 	"-c"*) # calc cols
-		echo "calc cols"
-		do_calculations $fct 1 $tot_fields $fct $lc 2
+		do_calculations $fct 1 $tot_fields $fct $lc
+		printcols
 		;;
 	*) # bad input
 		usage
