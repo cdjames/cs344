@@ -57,11 +57,11 @@ do_calculations() {
 	inner_reps=$3
 	inner_inc=$4
 	divisor=$5
-	roundup=1
+	roundup=2
 	# roundup should be 1 for odd field counts and 2 for even ones
-	# if [[ $(( $divisor % 2 )) ]]; then
-	# 	roundup=1
-	# fi
+	if [[ "$(( $divisor % 2 ))" > 0 ]]; then
+		roundup=1
+	fi
 	mednum=$(( ( $divisor + $roundup ) / 2 ))
 	for (( i = 0; i < outer_reps; i+=outer_inc )); do
 		total=0
