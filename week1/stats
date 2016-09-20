@@ -35,23 +35,6 @@ check_opts() {
 	usage
 }
 
-choose_path() {
-	case $1 in
-		"-r"*)
-			# run rows version of calculation
-			echo "-r!"
-			;;
-		"-c"*)
-			# run cols version
-			echo "-c!"
-			;;
-		*) # bad input
-			usage
-			;;
-
-	esac
-}
-
 clean_up() {
 	if [ -e "datafile$$" ]; then
 		rm -f "datafile$$"
@@ -62,17 +45,10 @@ clean_up() {
 avg() {
 	local total=$1
 	local fields=$2
-	local average=$(( $total / $fields ))
-	# see if number needs to be rounded
-	# if [ $(( $total % $fields )) ]; then
-	# 	((average++))
-	# fi
-	echo "$average"
+	# with help from -- http://stackoverflow.com/questions/2395284/round-a-divided-number-in-bash
+	# (total + (denom/2)) / denom to round on halves or higher
+	echo $(( ( $total + ($fields / 2) ) / $fields ))
 }
-
-# get_line() {
-
-# }
 
 do_calculations() {
 	count=0
@@ -82,33 +58,30 @@ do_calculations() {
 	inner_inc=$4
 	divisor=$5
 	roundup=1
-	if [[ $(( $divisor % 2 )) ]]; then
-		roundup=2
-	fi
-	mednum=$(expr \( $divisor + $roundup \) / 2)
+	# roundup should be 1 for odd field counts and 2 for even ones
+	# if [[ $(( $divisor % 2 )) ]]; then
+	# 	roundup=1
+	# fi
+	mednum=$(( ( $divisor + $roundup ) / 2 ))
 	for (( i = 0; i < outer_reps; i+=outer_inc )); do
 		total=0
 		thisline=""
 		# reassemble line
 		for (( x = 0; x < inner_reps; x+=inner_inc )); do
-			idx=$(expr $i + $x)
+			idx=$(( $i + $x ))
 			# thisline[$x]=${allfields[$idx]}
-			thisline="$thisline\n${allfields[$idx]}"
-			total=$(expr ${allfields[$idx]} + $total)
+			thisline="$thisline\n${allfields[$idx]}" # create a row of numbers as a string
+			total=$(( ${allfields[$idx]} + $total ))
 		done
 		
 		# figure average for thisline and store in averages
 		averages[$count]=$(avg $total $divisor)
-		# echo "avgs[$count] = ${averages[$count]} "
 		
 		# process median
 		# awk strips whitespace
-		# echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" " "
 		medians[$count]=$(echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" "\t" | cut -f $mednum)
-		# echo "median=${medians[$count]}"
-		# echo "count=$count"
+		
 		((count++))
-		# echo "total=$total"
 	done
 }
 
