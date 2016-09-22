@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# some global variables
 PROGNAME=$(basename $0)
 datafilepath="datafile$$"
 averages=()
@@ -7,15 +8,14 @@ medians=()
 allfields=()
 
 exit_prog() {
-	#-----------
+	#------------------------------------------------------------------
 	# An error outputting function
 	# Uses ideas and code from http://www.linuxcommand.org/wss0150.php
 	#
-	# Accepts one argument
-	#-----------
+	# $1 is the message
+	#------------------------------------------------------------------
 
-	# >$2 outputs to stderr
-	>&2 echo $1
+	>&2 echo $1  # >$2 outputs to stderr
 	exit 1
 }
 
@@ -112,12 +112,15 @@ trap clean_up SIGINT SIGTERM SIGHUP
 case $# in
 1) # there is only one arg
 	check_opts $1
-	cat > "$datafilepath"
+	if readlink /proc/$$/fd/0 | grep -q "^pipe:"; then
+		cat > "$datafilepath"
+	else
+		usage
+	fi
 	;;
 2) # 2 args
 	check_opts $1
 	if [ -e $2 ]; then # file exists
-		#statements
 		datafilepath=$2
 	else
 		bad_file $2
