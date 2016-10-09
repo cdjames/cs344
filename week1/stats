@@ -7,6 +7,23 @@ averages=()
 medians=()
 allfields=()
 
+clean_up() {
+	#------------------------------------------------------------------
+	# Delete temporary file if it exists
+	#
+	# Use "datafile$$" explicitly as that is the only file we would want
+	# to delete
+	#------------------------------------------------------------------
+	if [ -e "datafile$$" ]; then
+		rm -f "datafile$$"
+	fi
+	exit $1
+}
+
+clean_up_trap() {
+	clean_up 1
+}
+
 exit_prog() {
 	#------------------------------------------------------------------
 	# An error outputting function
@@ -15,71 +32,117 @@ exit_prog() {
 	# $1 is the message
 	#------------------------------------------------------------------
 
-	>&2 echo $1  # >$2 outputs to stderr
-	exit 1
+	>&2 echo $1  # >$2 outputs stderr to stdout
+	clean_up 1
 }
 
 usage() {
 	exit_prog "Usage: stats {-rows|-cols} [file]"
 }
 
+no_data() {
+	exit_prog "${PROGNAME}: no data in file"
+}
 
 bad_file() {
 	exit_prog "${PROGNAME}: cannot read '$1'"
 }
 
 check_opts() {
+	#------------------------------------------------------------------
+	# Check whether the user entered a valid option, otherwise exit
+	#
+	# $1 is the supposed option
+	#------------------------------------------------------------------
 	if [[ $1 == -r* ]] || [[ $1 == -c* ]]; then
 		return
 	fi
 	usage
 }
 
-clean_up() {
-	if [ -e "datafile$$" ]; then
-		rm -f "datafile$$"
-	fi
-	exit
-}
-
 avg() {
+	#------------------------------------------------------------------
+	# Produce an average given a total and number of fields
+	# with help from -- http://stackoverflow.com/questions/2395284/round-a-divided-number-in-bash
+	# (total + (denom/2)) / denom to round up on halves or higher
+	#------------------------------------------------------------------
 	local total=$1
 	local fields=$2
-	# with help from -- http://stackoverflow.com/questions/2395284/round-a-divided-number-in-bash
-	# (total + (denom/2)) / denom to round on halves or higher
+	
 	echo $(( ( $total + ($fields / 2) ) / $fields ))
 }
 
+sort_n_cut() {
+	#------------------------------------------------------------------
+	# Sort a column of text, convert to row, and cut specified field
+	# Uses ideas and code from http://www.linuxcommand.org/wss0150.php
+	#
+	# -->sort-->replace carriage returns with tabs-->return only the 
+	# specified field
+	#
+	# $1 is the column (i.e. "1\n2\n3\n4...")
+	# $2 is the field to cut (i.e. 1, 2, 3, 4)
+	#------------------------------------------------------------------
+
+	# awk strips whitespace
+	echo -e $1 | awk '$1=$1' | sort -g | tr -s "\n" "\t" | cut -f $2
+}
+
 do_calculations() {
-	count=0
-	outer_reps=$1
-	outer_inc=$2
-	inner_reps=$3
-	inner_inc=$4
-	divisor=$5
-	roundup=2
-	# roundup should be 1 for odd field counts and 2 for even ones
-	if [[ "$(( $divisor % 2 ))" > 0 ]]; then
-		roundup=1
-	fi
-	mednum=$(( ( $divisor + $roundup ) / 2 ))
+	#------------------------------------------------------------------
+	# Finds average and median for each row/column in allfields[] and 
+	# stores them in two arrays
+	#
+	# Processes rows vs. columns depending on how outer/inner values are passed
+	#
+	# For rows pass total fields for outer reps, field count for outer increments
+	# and inner reps, and 1 for inner increment
+	#
+	# For columns reverse the outer and inner: pass field count for outer 
+	# reps, 1 for outer increment, total fields for inner reps
+	# field count for inner increment 
+	#------------------------------------------------------------------
+	local count=0
+	local outer_reps=$1
+	local outer_inc=$2
+	local inner_reps=$3
+	local inner_inc=$4
+	local divisor=$5
+	local roundup=2
+	local med_divisor=$divisor
+
 	for (( i = 0; i < outer_reps; i+=outer_inc )); do
 		total=0
 		thisline=""
+		med_divisor=$divisor
+
 		# reassemble line
 		for (( x = 0; x < inner_reps; x+=inner_inc )); do
 			idx=$(( $i + $x ))
-			# thisline[$x]=${allfields[$idx]}
-			thisline="$thisline\n${allfields[$idx]}" # create a row of numbers as a string
+			if [[ ${allfields[$idx]} > 0 ]]; then
+				# create a column of numbers as a string
+				thisline="$thisline\n${allfields[$idx]}" 
+			else # number is 0 so don't include in median computation
+				med_divisor=$(( $med_divisor-1 ))
+			fi
 			total=$(( ${allfields[$idx]} + $total ))
 		done
-		
-		# figure average for thisline and store in averages
+
+		# roundup should be 1 for odd field counts and 2 for even ones
+		if [[ "$(( $med_divisor % 2 ))" > 0 ]]; then
+			roundup=1
+		fi
+
+		# figure average for thisline and store in averages array
 		averages[$count]=$(avg $total $divisor)
 		
 		# process median
-		# awk strips whitespace
-		medians[$count]=$(echo -e $thisline | awk '$1=$1' | sort -g | tr -s "\n" "\t" | cut -f $mednum)
+		if [[ $med_divisor > 0 ]]; then
+			mednum=$(( ( $med_divisor + $roundup ) / 2 )) # i.e. (4+2)/2 = 3; (5+1)/2 = 3 
+			medians[$count]=$(sort_n_cut $thisline $mednum)
+		else # the entire row or column was zeroes
+			medians[$count]=0
+		fi
 		
 		((count++))
 	done
@@ -95,6 +158,7 @@ printrows() {
 printcols() {
 	echo "Averages:"
 	for (( i = 0; i < ${#averages[@]}; i++ )); do
+		# printf doesn't automatically send a newline, so it can be appended to in separate passes
 		printf "%d\t" ${averages[$i]}
 	done
 	echo
@@ -104,15 +168,18 @@ printcols() {
 	done
 	echo
 }
+#########  BEGIN MAIN INSTRUCTIONS  ##########
 
 # make sure you clean up if the program is interrupted
-trap clean_up SIGINT SIGTERM SIGHUP
+trap clean_up_trap SIGINT SIGTERM SIGHUP SIGKILL SIGSTOP
 
 # figure out whether you have a file or stdin
 case $# in
-1) # there is only one arg
-	check_opts $1
-	if readlink /proc/$$/fd/0 | grep -q "^pipe:"; then
+1) # if there is only one arg
+	check_opts $1 # get out of the program if you've got a bad option
+	# help here: http://stackoverflow.com/questions/5710957/bash-input-from-pipe
+	# check whether input is from a pipe; if it isn't, it means you either weren't passed a file or weren't passed an option
+	if [ "$( tty )" == 'not a tty' ]; then # it's from a pipe!
 		cat > "$datafilepath"
 	else
 		usage
@@ -120,7 +187,7 @@ case $# in
 	;;
 2) # 2 args
 	check_opts $1
-	if [ -e $2 ]; then # file exists
+	if [ -e $2 ] && [ -r $2 ]; then # file exists and is readable
 		datafilepath=$2
 	else
 		bad_file $2
@@ -132,9 +199,9 @@ case $# in
 esac
 
 lc=$(cat $datafilepath | wc -l) # line count
-fct=$(head -n 1 $datafilepath | wc -w) # field count
+fct=$(head -n 1 $datafilepath | wc -w) # field count; just count first line of file
 
-# put all fields from file into an array
+## put all fields from file into an array while there are still tabs
 ct=0
 while IFS=$'\t' read -ra fields
 do
@@ -142,10 +209,14 @@ do
 		allfields[ct]=$i
 		((ct++))
 	done
-done < $datafilepath
+	# if ct is 0, that means there was no good data in the file; print usage and exit
+done < $datafilepath # read in from the file
 
+if [[ $ct == 0 ]]; then
+	no_data
+fi
 ## do calculations for either rows or columns
-tot_fields=$(expr $lc \* $fct)
+tot_fields=$(( $lc * $fct ))
 case $1 in
 	"-r"*) # calc rows
 		do_calculations $tot_fields $fct $fct 1 $fct
@@ -160,4 +231,5 @@ case $1 in
 		;;
 esac
 
-clean_up
+## clean up with no errors
+clean_up 0
