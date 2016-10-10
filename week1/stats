@@ -164,15 +164,18 @@ do_calculations() {
 }
 
 printrows() {
+	tabs 8
 	echo "Averages Medians"
 	for (( i = 0; i < ${#averages[@]}; i++ )); do
 		## print your averages and medians separated with a tab and 1 space
 		## a tab will be 8 spaces on most consoles
 		echo -e "${averages[$i]}\t ${medians[$i]}"
 	done
+	tabs -8
 }
 
 printcols() {
+	tabs 8
 	echo "Averages:"
 	for (( i = 0; i < ${#averages[@]}; i++ )); do
 		# printf doesn't automatically send a newline, so it can be appended to in separate passes
@@ -184,6 +187,7 @@ printcols() {
 		printf "%d\t" ${medians[$i]}
 	done
 	echo
+	tabs -8
 }
 #########  BEGIN MAIN INSTRUCTIONS  ##########
 
