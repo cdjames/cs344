@@ -3,12 +3,12 @@ Creating file1 file2 file3 file4 file5
 
 
 total 28
--rw-r--r--. 1 vagrant vagrant  259 Oct  9 18:12 file1
--rw-r--r--. 1 vagrant vagrant   49 Oct  9 18:12 file2
--rw-r--r--. 1 vagrant vagrant    3 Oct  9 18:12 file3
--rw-r--r--. 1 vagrant vagrant    0 Oct  9 18:12 file4
--rw-r--r--. 1 vagrant vagrant 5831 Oct  9 18:12 file5
--rwxr-xr-x. 1 vagrant vagrant 6138 Oct  9 18:12 stats
+-rw-r--r--. 1 vagrant vagrant  259 Oct 11 01:56 file1
+-rw-r--r--. 1 vagrant vagrant   49 Oct 11 01:56 file2
+-rw-r--r--. 1 vagrant vagrant    3 Oct 11 01:56 file3
+-rw-r--r--. 1 vagrant vagrant    0 Oct 11 01:56 file4
+-rw-r--r--. 1 vagrant vagrant 5831 Oct 11 01:56 file5
+-rwxr-xr-x. 1 vagrant vagrant 7943 Oct 11 01:56 stats
 
 
 --------------------------------------------------------------------------
@@ -230,9 +230,9 @@ Simultaneous Runs
 
 
 Before Finishing
-datafile14169
-datafile14170
-datafile14171
+datafile24398
+datafile24399
+datafile24400
 file1
 file2
 file3
@@ -295,7 +295,7 @@ Trap Signals
 
 
 Before Kill
-datafile14405
+datafile24634
 file1
 file2
 file3
@@ -304,10 +304,13 @@ file5
 stats
 
   PID TTY          TIME CMD
-12615 pts/1    00:00:00 p1gradingscript
-14405 pts/1    00:00:00 stats
-14552 pts/1    00:00:00 ps
-14553 pts/1    00:00:00 stats
+22845 pts/1    00:00:01 p1gradingscript
+24634 pts/1    00:00:00 stats
+24781 pts/1    00:00:00 stats
+24784 pts/1    00:00:00 sort
+24785 pts/1    00:00:00 tr
+24786 pts/1    00:00:00 cut
+24787 pts/1    00:00:00 ps
 28800 pts/1    00:00:00 bash
 
 
@@ -320,8 +323,8 @@ file5
 stats
 
   PID TTY          TIME CMD
-12615 pts/1    00:00:00 p1gradingscript
-14562 pts/1    00:00:00 ps
+22845 pts/1    00:00:01 p1gradingscript
+24798 pts/1    00:00:00 ps
 28800 pts/1    00:00:00 bash
 
 
