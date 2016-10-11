@@ -118,11 +118,13 @@ do_calculations() {
 	# Processes rows vs. columns depending on how outer/inner values are passed
 	#
 	# For rows pass total fields for outer reps, field count for outer increments
-	# and inner reps, and 1 for inner increment
+	# (to skip to next "row") and inner reps, and 1 for inner increment (process each field)
 	#
 	# For columns reverse the outer and inner: pass field count for outer 
-	# reps, 1 for outer increment, total fields for inner reps, and
-	# field count for inner increment 
+	# reps, 1 for outer increment (to go to next "column"), total fields for inner reps, and
+	# field count for inner increment (to get to the next item in each row)
+	#
+	# This very crudely simulates a 2-d array
 	#------------------------------------------------------------------
 	local count=0			# keep a separate count variable for averages and medians arrays
 	local outer_reps=$1
@@ -131,29 +133,27 @@ do_calculations() {
 	local inner_inc=$4
 	local divisor=$5
 	local roundup=2
-	local med_divisor=$divisor # use for determining median number
 
 	for (( i = 0; i < outer_reps; i+=outer_inc )); do
 		total=0		# for a running total
 		thisline="" # a string of all non-zero numbers to be sorted later for median
-		med_divisor=$divisor # needs to be re-assigned every pass to get accurate field count for median
 		
 		## reassemble a string from array and get a total sum of line/column
 		for (( x = 0; x < inner_reps; x+=inner_inc )); do
 			idx=$(( $i + $x ))
 
-			# create a column of numbers as a string
-			if [[ $x == 0 ]]; then # don't tack on \n first run
+			# create a column of numbers as a string so that sort can operate on it
+			if [[ $x == 0 ]]; then # don't tack on \n first run so sort operates correctly
 				thisline="${allfields[$idx]}" 
 			else
 				thisline="$thisline\n${allfields[$idx]}" 
 			fi
 
-			total=$(( ${allfields[$idx]} + $total )) # keep a running total
+			total=$(( ${allfields[$idx]} + $total )) # keep a running total for average comp.
 		done
 		
 		## roundup should be 1 for odd field counts and 2 for even ones
-		if [[ "$(( $med_divisor % 2 ))" > 0 ]]; then
+		if [[ "$(( $divisor % 2 ))" > 0 ]]; then
 			roundup=1
 		fi
 
@@ -161,7 +161,7 @@ do_calculations() {
 		averages[$count]=$(avg $total $divisor)
 		
 		# figure median and store
-		mednum=$(( ( $med_divisor + $roundup ) / 2 )) # i.e. (4+2)/2 = 3; (5+1)/2 = 3 
+		mednum=$(( ( $divisor + $roundup ) / 2 )) # i.e. (4+2)/2 = 3; (5+1)/2 = 3 
 		medians[$count]=$(sort_n_cut $thisline $mednum)
 		
 		((count++))
@@ -227,7 +227,7 @@ case $# in
 	;;
 2) # 2 args
 	check_opts $1
-	if [ -e $2 ] && [ -r $2 ]; then # file exists and is readable
+	if [ -e $2 ] && [ -r $2 ]; then # file exists (-e) and is readable (-r)
 		datafilepath=$2
 	else
 		# print an error message and exit
@@ -239,12 +239,14 @@ case $# in
 	;;
 esac
 
-## start processing file
+## You have good data, so start processing file
 lc=$(cat $datafilepath | wc -l) 		# line count
 fct=$(head -n 1 $datafilepath | wc -w) 	# field count; just count fields in first line of file
 
 ## put all fields from file into an array while there are still tabs
 ct=0 # index for array
+
+# read the fields (tab-delim) of every line into an array (fields)
 while IFS=$'\t' read -ra fields
 do
 	for i in "${fields[@]}"; do
