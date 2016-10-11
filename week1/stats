@@ -1,17 +1,27 @@
 #!/bin/bash
 
-# some global variables
-PROGNAME=$(basename $0)
-datafilepath="datafile$$"
+#######################################################################
+## Author: Collin James, CS 344 Operating Systems
+## Date: 10/11/16
+## Description: Stats - Compute averages and medians given a block of 
+##				values
+#######################################################################
+
+#########  some global variables  ##########
+
+PROGNAME=$(basename $0)		# "stats" -- see http://www.linuxcommand.org/wss0150.php
+datafilepath="datafile$$"	# $$ is the pid; unique identifier
 averages=()					# an array to store averages
 medians=()					# an array to store medians
 allfields=()				# an array to keep all fields in file
 
+#########  Functions  ##########
 clean_up() {
 	#------------------------------------------------------------------
-	# Delete temporary file if it exists and exit with code $1 (0 or 1)
+	# Delete temporary file if it exists and exit with code $1 
+	# 0 (normal) or 1 (error)
 	#
-	# Use "datafile$$" explicitly as that is the only file we would want
+	# Use "datafile$$" (pid) explicitly as that is the only file we would want
 	# to delete
 	#------------------------------------------------------------------
 	if [ -e "datafile$$" ]; then
@@ -22,7 +32,7 @@ clean_up() {
 
 clean_up_trap() {
 	#------------------------------------------------------------------
-	# Clean up and exit with an error
+	# Clean up and exit with an error; for use in trap command
 	#------------------------------------------------------------------
 	clean_up 1
 }
@@ -34,7 +44,6 @@ exit_prog() {
 	#
 	# $1 is the message
 	#------------------------------------------------------------------
-
 	>&2 echo $1 # >$2 outputs stderr to stdout
 	clean_up 1 	# exit with error code
 }
@@ -90,7 +99,6 @@ avg() {
 sort_n_cut() {
 	#------------------------------------------------------------------
 	# Sort a column of text, convert to row, and cut specified field
-	# Uses ideas and code from http://www.linuxcommand.org/wss0150.php
 	#
 	# -->sort-->replace carriage returns with tabs-->return only the 
 	# specified field
@@ -116,7 +124,7 @@ do_calculations() {
 	# reps, 1 for outer increment, total fields for inner reps, and
 	# field count for inner increment 
 	#------------------------------------------------------------------
-	local count=0
+	local count=0			# keep a separate count variable for averages and medians arrays
 	local outer_reps=$1
 	local outer_inc=$2
 	local inner_reps=$3
@@ -152,13 +160,9 @@ do_calculations() {
 		# figure average for current line/row and store in averages array
 		averages[$count]=$(avg $total $divisor)
 		
-		# process median
-		# if [[ $med_divisor > 0 ]]; then
-			mednum=$(( ( $med_divisor + $roundup ) / 2 )) # i.e. (4+2)/2 = 3; (5+1)/2 = 3 
-			medians[$count]=$(sort_n_cut $thisline $mednum)
-		# else # the entire row or column was zeroes
-		# 	medians[$count]=0
-		# fi
+		# figure median and store
+		mednum=$(( ( $med_divisor + $roundup ) / 2 )) # i.e. (4+2)/2 = 3; (5+1)/2 = 3 
+		medians[$count]=$(sort_n_cut $thisline $mednum)
 		
 		((count++))
 	done
@@ -167,15 +171,15 @@ do_calculations() {
 printrows() {
 	#------------------------------------------------------------------
 	# Pretty print your rows with tabs
+	#! tried using 'tabs' command to normalize but produces wonky codes in resulting file
 	# 
 	# Uses global arrays averages and medians
 	#------------------------------------------------------------------
 	echo "Averages Medians"
 	for (( i = 0; i < ${#averages[@]}; i++ )); do
-		## print your averages and medians separated with a tab and 1 space
+		## print your averages and medians separated with a tab and 2 spaces
 		## a tab will be 8 spaces on most consoles
-		##! tried using 'tabs' command to normalize but produces wonky codes in resulting file
-		echo -e "${averages[$i]}\t ${medians[$i]}"
+		echo -e "${averages[$i]}\t  ${medians[$i]}"
 	done
 }
 
@@ -202,17 +206,17 @@ printcols() {
 
 #########  BEGIN MAIN INSTRUCTIONS  ##########
 
-# make sure you clean up if the program is interrupted
-trap clean_up_trap SIGINT SIGTERM SIGHUP SIGKILL SIGSTOP
+## make sure you clean up (delete temp file) if the program is interrupted
+trap clean_up_trap SIGINT SIGTERM SIGHUP
 
-# figure out whether you have a file or stdin
+## figure out whether you have a file or stdin
 case $# in
 1) # if there is only one arg
 	# get out of the program if you've got a bad option
 	check_opts $1 
 	
 	# check whether input is from a pipe; if it isn't, it means you either weren't passed a file or weren't passed an option
-	# help here: http://stackoverflow.com/questions/5710957/bash-input-from-pipe
+	# received help here: http://stackoverflow.com/questions/5710957/bash-input-from-pipe
 	if [ "$( tty )" == 'not a tty' ]; then # it's from a pipe!
 		# save your information in the temporary file (created here)
 		cat > "$datafilepath"
@@ -245,7 +249,6 @@ while IFS=$'\t' read -ra fields
 do
 	for i in "${fields[@]}"; do
 		allfields[ct]=$i
-		# printf "%d\t" ${allfields[ct]}
 		((ct++))
 	done
 done < $datafilepath # read in from the file
@@ -256,7 +259,7 @@ if [[ $ct == 0 ]]; then
 fi
 
 ## do calculations for either rows or columns
-tot_fields=$(( $lc * $fct ))
+tot_fields=$(( $lc * $fct )) # total number of fields (values) in the file
 case $1 in
 	"-r"*) # calc rows
 		# outer reps, outer increment, inner reps, inner incr, divisor
