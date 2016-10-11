@@ -164,18 +164,30 @@ do_calculations() {
 }
 
 printrows() {
+	#------------------------------------------------------------------
+	# Pretty print your rows with tabs
+	# 
+	# Uses global arrays averages and medians
+	#------------------------------------------------------------------
 	echo "Averages Medians"
 	for (( i = 0; i < ${#averages[@]}; i++ )); do
 		## print your averages and medians separated with a tab and 1 space
 		## a tab will be 8 spaces on most consoles
+		##! tried using 'tabs' command to normalize but produces wonky codes in resulting file
 		echo -e "${averages[$i]}\t ${medians[$i]}"
 	done
 }
 
 printcols() {
+	#------------------------------------------------------------------
+	# Pretty print your columns with tabs
+	# 
+	# Uses global arrays averages and medians
+	#------------------------------------------------------------------
 	echo "Averages:"
 	for (( i = 0; i < ${#averages[@]}; i++ )); do
 		# printf doesn't automatically send a newline, so it can be appended to in separate passes
+		# printf is a bash built-in! --> `type -a printf`
 		printf "%d\t" ${averages[$i]}
 	done
 	echo
@@ -185,6 +197,8 @@ printcols() {
 	done
 	echo
 }
+
+
 #########  BEGIN MAIN INSTRUCTIONS  ##########
 
 # make sure you clean up if the program is interrupted
@@ -196,12 +210,12 @@ case $# in
 	# get out of the program if you've got a bad option
 	check_opts $1 
 	
-	# help here: http://stackoverflow.com/questions/5710957/bash-input-from-pipe
 	# check whether input is from a pipe; if it isn't, it means you either weren't passed a file or weren't passed an option
+	# help here: http://stackoverflow.com/questions/5710957/bash-input-from-pipe
 	if [ "$( tty )" == 'not a tty' ]; then # it's from a pipe!
-		# so save your information in the temporary file (created here)
+		# save your information in the temporary file (created here)
 		cat > "$datafilepath"
-	else
+	else # no data or filename attached
 		# print instructions and exit
 		usage
 	fi
@@ -220,6 +234,7 @@ case $# in
 	;;
 esac
 
+## start processing file
 lc=$(cat $datafilepath | wc -l) 		# line count
 fct=$(head -n 1 $datafilepath | wc -w) 	# field count; just count fields in first line of file
 
@@ -242,6 +257,7 @@ fi
 tot_fields=$(( $lc * $fct ))
 case $1 in
 	"-r"*) # calc rows
+		# outer reps, outer increment, inner reps, inner incr, divisor
 		do_calculations $tot_fields $fct $fct 1 $fct
 		printrows
 		;;
