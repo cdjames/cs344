@@ -1,0 +1,330 @@
+--------------------------------------------------------------------------
+Creating file1 file2 file3 file4 file5
+
+
+total 28
+-rw-r--r--. 1 vagrant vagrant  259 Oct 11 01:56 file1
+-rw-r--r--. 1 vagrant vagrant   49 Oct 11 01:56 file2
+-rw-r--r--. 1 vagrant vagrant    3 Oct 11 01:56 file3
+-rw-r--r--. 1 vagrant vagrant    0 Oct 11 01:56 file4
+-rw-r--r--. 1 vagrant vagrant 5831 Oct 11 01:56 file5
+-rwxr-xr-x. 1 vagrant vagrant 7943 Oct 11 01:56 stats
+
+
+--------------------------------------------------------------------------
+File 1 Statistics by Rows: 1 point per correct number: 18
+
+Averages Medians
+94	 93
+86	 84
+74	 81
+74	 80
+80	 81
+64	 61
+55	 54
+54	 53
+100	 100
+
+
+--------------------------------------------------------------------------
+Check for Temporary Files: 5 points if no temp files
+
+file1
+file2
+file3
+file4
+file5
+stats
+
+
+--------------------------------------------------------------------------
+File 1 Statistics by Cols: 1 point per correct number: 18
+
+Averages:
+75	58	76	72	82	78	71	69	100	
+Medians:
+80	81	83	73	88	79	80	71	100	
+
+
+--------------------------------------------------------------------------
+Check for Temporary Files: 5 points if no temp files
+
+file1
+file2
+file3
+file4
+file5
+stats
+
+
+--------------------------------------------------------------------------
+File 2 Statistics by Rows: 1 point per correct number: 8
+
+Averages Medians
+94	 95
+91	 97
+71	 73
+94	 94
+
+
+--------------------------------------------------------------------------
+File 2 Statistics by Cols: 1 point per correct number: 8
+
+Averages:
+85	86	83	96	
+Medians:
+95	94	93	99	
+
+
+--------------------------------------------------------------------------
+File 3 Statistics by Rows: 1 point per correct number: 2
+
+Averages Medians
+17	 17
+
+
+--------------------------------------------------------------------------
+File 3 Statistics by Cols: 1 point per correct number: 2
+
+Averages:
+17	
+Medians:
+17	
+
+
+--------------------------------------------------------------------------
+File 4 Statistics by Rows: lose 3 points if response not something like FILE IS EMPTY
+
+stats: no data in file
+
+
+--------------------------------------------------------------------------
+File 4 Statistics by Cols: lose 3 points if response not something like FILE IS EMPTY
+
+stats: no data in file
+
+
+--------------------------------------------------------------------------
+File 5 Statistics by Cols: 1 point per number: 4
+
+Averages:
+24950	49900	
+Medians:
+25000	50000	
+
+
+--------------------------------------------------------------------------
+Check for Temporary Files: 5 points if no temp files
+
+file1
+file2
+file3
+file4
+file5
+stats
+
+
+--------------------------------------------------------------------------
+Good Syntax
+
+Standard Input on Rows: 2 points for exit value 0, 1 point for no error text
+Averages Medians
+94	 95
+91	 97
+71	 73
+94	 94
+Exit Value: 0
+Error Message:
+
+Standard Input on Cols: 2 points for exit value 0, 1 point for no error text
+Averages:
+85	86	83	96	
+Medians:
+95	94	93	99	
+Exit Value: 0
+Error Message:
+
+Option -cols: 2 points for exit value 0, 1 point for no error text
+Averages:
+85	86	83	96	
+Medians:
+95	94	93	99	
+Exit Value: 0
+Error Message:
+
+Option -rrrrrr: 2 points for exit value 0, 1 point for no error text
+Averages Medians
+94	 95
+91	 97
+71	 73
+94	 94
+Exit Value: 0
+Error Message:
+
+Option -cccccc: 3 points for exit value 0
+Averages:
+85	86	83	96	
+Medians:
+95	94	93	99	
+Exit Value: 0
+Error Message:
+
+Option -r: 3 points for exit value 0
+Averages Medians
+94	 95
+91	 97
+71	 73
+94	 94
+Exit Value: 0
+Error Message:
+
+
+--------------------------------------------------------------------------
+Bad Syntax
+
+Too Few Arguments: 1 point for usage text, 2 points for exit value 1
+Exit Value: 1
+Error Message:
+Usage: stats {-rows|-cols} [file]
+
+Too Many Arguments: 1 point for usage text, 2 points for exit value 1
+Exit Value: 1
+Error Message:
+Usage: stats {-rows|-cols} [file]
+
+Wrong Format: 1 point for usage text, 2 points for exit value 1
+Exit Value: 1
+Error Message:
+Usage: stats {-rows|-cols} [file]
+
+Bad Option: 1 point for usage text, 2 points for exit value 1
+Exit Value: 1
+Error Message:
+Usage: stats {-rows|-cols} [file]
+
+
+--------------------------------------------------------------------------
+File Not Readable: 2 points for error msg, 2 points for program halting
+
+
+Averages Medians
+17	 17
+Exit Value: 0
+Error Message:
+
+
+
+--------------------------------------------------------------------------
+Check for Temporary Files: 5 points for no temp files
+
+file1
+file2
+file3
+file4
+file5
+stats
+
+
+--------------------------------------------------------------------------
+Simultaneous Runs
+
+
+Before Finishing
+datafile24398
+datafile24399
+datafile24400
+file1
+file2
+file3
+file4
+file5
+simrun1.out
+simrun2.out
+simrun3.out
+stats
+
+waiting...
+
+Run 1 Output: 5 points for succesful run 1
+Averages Medians
+94	 93
+86	 84
+74	 81
+74	 80
+80	 81
+64	 61
+55	 54
+54	 53
+100	 100
+
+Run 2 Output: 5 points for succesful run 2
+Averages Medians
+94	 93
+86	 84
+74	 81
+74	 80
+80	 81
+64	 61
+55	 54
+54	 53
+100	 100
+
+Run 3 Output: 5 points for succesful run 3
+Averages Medians
+94	 93
+86	 84
+74	 81
+74	 80
+80	 81
+64	 61
+55	 54
+54	 53
+100	 100
+
+
+After Finishing: 5 points if no temp file
+file1
+file2
+file3
+file4
+file5
+stats
+
+
+Trap Signals
+
+
+Before Kill
+datafile24634
+file1
+file2
+file3
+file4
+file5
+stats
+
+  PID TTY          TIME CMD
+22845 pts/1    00:00:01 p1gradingscript
+24634 pts/1    00:00:00 stats
+24781 pts/1    00:00:00 stats
+24784 pts/1    00:00:00 sort
+24785 pts/1    00:00:00 tr
+24786 pts/1    00:00:00 cut
+24787 pts/1    00:00:00 ps
+28800 pts/1    00:00:00 bash
+
+
+After Kill: 8 points if no temp files
+file1
+file2
+file3
+file4
+file5
+stats
+
+  PID TTY          TIME CMD
+22845 pts/1    00:00:01 p1gradingscript
+24798 pts/1    00:00:00 ps
+28800 pts/1    00:00:00 bash
+
+

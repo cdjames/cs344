@@ -1,0 +1,281 @@
+#!/bin/bash
+
+#######################################################################
+## Author: Collin James, CS 344 Operating Systems
+## Date: 10/11/16
+## Description: Stats - Compute averages and medians given a block of 
+##				values
+#######################################################################
+
+#########  some global variables  ##########
+
+PROGNAME=$(basename $0)		# "stats" -- see http://www.linuxcommand.org/wss0150.php
+datafilepath="datafile$$"	# $$ is the pid; unique identifier
+averages=()					# an array to store averages
+medians=()					# an array to store medians
+allfields=()				# an array to keep all fields in file
+
+#########  Functions  ##########
+clean_up() {
+	#------------------------------------------------------------------
+	# Delete temporary file if it exists and exit with code $1 
+	# 0 (normal) or 1 (error)
+	#
+	# Use "datafile$$" (pid) explicitly as that is the only file we would want
+	# to delete
+	#------------------------------------------------------------------
+	if [ -e "datafile$$" ]; then
+		rm -f "datafile$$" # force removal of datafile if it exists
+	fi
+	exit $1
+}
+
+clean_up_trap() {
+	#------------------------------------------------------------------
+	# Clean up and exit with an error; for use in trap command
+	#------------------------------------------------------------------
+	clean_up 1
+}
+
+exit_prog() {
+	#------------------------------------------------------------------
+	# An error outputting function
+	# Uses ideas and code from http://www.linuxcommand.org/wss0150.php
+	#
+	# $1 is the message
+	#------------------------------------------------------------------
+	>&2 echo $1 # >$2 outputs stderr to stdout
+	clean_up 1 	# exit with error code
+}
+
+usage() {
+	#------------------------------------------------------------------
+	# Print instructions and exit with an error code
+	#------------------------------------------------------------------
+	exit_prog "Usage: stats {-rows|-cols} [file]"
+}
+
+no_data() {
+	#------------------------------------------------------------------
+	# Exit with an error message and code
+	#------------------------------------------------------------------
+	exit_prog "${PROGNAME}: no data in file"
+}
+
+bad_file() {
+	#------------------------------------------------------------------
+	# Exit with an error message and code
+	# $1 is an unreadable filename
+	#------------------------------------------------------------------
+	exit_prog "${PROGNAME}: cannot read '$1'"
+}
+
+check_opts() {
+	#------------------------------------------------------------------
+	# Check whether the user entered a valid option, otherwise exit.
+	# Valid options are any strings beginning with 'r' or any words beginning
+	# with 'c'
+	#
+	# $1 is the supposed option
+	#------------------------------------------------------------------
+	if [[ $1 == -r* ]] || [[ $1 == -c* ]]; then
+		return
+	fi
+	usage
+}
+
+avg() {
+	#------------------------------------------------------------------
+	# Produce an average given a total and number of fields
+	# with help from -- http://stackoverflow.com/questions/2395284/round-a-divided-number-in-bash
+	# ((total + (denom/2)) / denom) to round up on halves or higher
+	#------------------------------------------------------------------
+	local total=$1
+	local fields=$2
+	
+	echo $(( ( $total + ($fields / 2) ) / $fields ))
+}
+
+sort_n_cut() {
+	#------------------------------------------------------------------
+	# Sort a column of text, convert to row, and cut specified field
+	#
+	# -->sort-->replace carriage returns with tabs-->return only the 
+	# specified field
+	#
+	# $1 is the column (i.e. "1\n2\n3\n4...")
+	# $2 is the field to cut (i.e. 1, 2, 3, 4)
+	#------------------------------------------------------------------
+
+	echo -e $1 | sort -g | tr -s "\n" "\t" | cut -f $2
+}
+
+do_calculations() {
+	#------------------------------------------------------------------
+	# Finds average and median for each row/column in allfields[] and 
+	# stores them in two arrays
+	#
+	# Processes rows vs. columns depending on how outer/inner values are passed
+	#
+	# For rows pass total fields for outer reps, field count for outer increments
+	# (to skip to next "row") and inner reps, and 1 for inner increment (process each field)
+	#
+	# For columns reverse the outer and inner: pass field count for outer 
+	# reps, 1 for outer increment (to go to next "column"), total fields for inner reps, and
+	# field count for inner increment (to get to the next item in each row)
+	#
+	# This very crudely simulates a 2-d array
+	#------------------------------------------------------------------
+	local count=0			# keep a separate count variable for averages and medians arrays
+	local outer_reps=$1
+	local outer_inc=$2
+	local inner_reps=$3
+	local inner_inc=$4
+	local divisor=$5
+	local roundup=2
+
+	for (( i = 0; i < outer_reps; i+=outer_inc )); do
+		total=0		# for a running total
+		thisline="" # a string of all non-zero numbers to be sorted later for median
+		
+		## reassemble a string from array and get a total sum of line/column
+		for (( x = 0; x < inner_reps; x+=inner_inc )); do
+			idx=$(( $i + $x ))
+
+			# create a column of numbers as a string so that sort can operate on it
+			if [[ $x == 0 ]]; then # don't tack on \n first run so sort operates correctly
+				thisline="${allfields[$idx]}" 
+			else
+				thisline="$thisline\n${allfields[$idx]}" 
+			fi
+
+			total=$(( ${allfields[$idx]} + $total )) # keep a running total for average comp.
+		done
+		
+		## roundup should be 1 for odd field counts and 2 for even ones
+		if [[ "$(( $divisor % 2 ))" > 0 ]]; then
+			roundup=1
+		fi
+
+		# figure average for current line/row and store in averages array
+		averages[$count]=$(avg $total $divisor)
+		
+		# figure median and store
+		mednum=$(( ( $divisor + $roundup ) / 2 )) # i.e. (4+2)/2 = 3; (5+1)/2 = 3 
+		medians[$count]=$(sort_n_cut $thisline $mednum)
+		
+		((count++))
+	done
+}
+
+printrows() {
+	#------------------------------------------------------------------
+	# Pretty print your rows with tabs
+	#! tried using 'tabs' command to normalize but produces wonky codes in resulting file
+	# 
+	# Uses global arrays averages and medians
+	#------------------------------------------------------------------
+	echo "Averages Medians"
+	for (( i = 0; i < ${#averages[@]}; i++ )); do
+		## print your averages and medians separated with a tab and 2 spaces
+		## a tab will be 8 spaces on most consoles
+		echo -e "${averages[$i]}\t  ${medians[$i]}"
+	done
+}
+
+printcols() {
+	#------------------------------------------------------------------
+	# Pretty print your columns with tabs
+	# 
+	# Uses global arrays averages and medians
+	#------------------------------------------------------------------
+	echo "Averages:"
+	for (( i = 0; i < ${#averages[@]}; i++ )); do
+		# printf doesn't automatically send a newline, so it can be appended to in separate passes
+		# printf is a bash built-in! --> `type -a printf`
+		printf "%d\t" ${averages[$i]}
+	done
+	echo
+	echo "Medians:"
+	for (( i = 0; i < ${#medians[@]}; i++ )); do
+		printf "%d\t" ${medians[$i]}
+	done
+	echo
+}
+
+
+#########  BEGIN MAIN INSTRUCTIONS  ##########
+
+## make sure you clean up (delete temp file) if the program is interrupted
+trap clean_up_trap SIGINT SIGTERM SIGHUP
+
+## figure out whether you have a file or stdin
+case $# in
+1) # if there is only one arg
+	# get out of the program if you've got a bad option
+	check_opts $1 
+	
+	# check whether input is from a pipe; if it isn't, it means you either weren't passed a file or weren't passed an option
+	# received help here: http://stackoverflow.com/questions/5710957/bash-input-from-pipe
+	if [ "$( tty )" == 'not a tty' ]; then # it's from a pipe!
+		# save your information in the temporary file (created here)
+		cat > "$datafilepath"
+	else # no data or filename attached
+		# print instructions and exit
+		usage
+	fi
+	;;
+2) # 2 args
+	check_opts $1
+	if [ -e $2 ] && [ -r $2 ]; then # file exists (-e) and is readable (-r)
+		datafilepath=$2
+	else
+		# print an error message and exit
+		bad_file $2
+	fi
+	;;
+*) # 0 or >2 args
+	usage
+	;;
+esac
+
+## You have good data, so start processing file
+lc=$(cat $datafilepath | wc -l) 		# line count
+fct=$(head -n 1 $datafilepath | wc -w) 	# field count; just count fields in first line of file
+
+## put all fields from file into an array while there are still tabs
+ct=0 # index for array
+
+# read the fields (tab-delim) of every line into an array (fields)
+while IFS=$'\t' read -ra fields
+do
+	for i in "${fields[@]}"; do
+		allfields[ct]=$i
+		((ct++))
+	done
+done < $datafilepath # read in from the file
+
+# if ct is 0, that means there was no good data in the file; print error and exit
+if [[ $ct == 0 ]]; then
+	no_data
+fi
+
+## do calculations for either rows or columns
+tot_fields=$(( $lc * $fct )) # total number of fields (values) in the file
+case $1 in
+	"-r"*) # calc rows
+		# outer reps, outer increment, inner reps, inner incr, divisor
+		do_calculations $tot_fields $fct $fct 1 $fct
+		printrows
+		;;
+	"-c"*) # calc cols
+		do_calculations $fct 1 $tot_fields $fct $lc
+		printcols
+		;;
+	*) # bad input
+		usage
+		;;
+esac
+
+## clean up and exit with no errors
+clean_up 0
