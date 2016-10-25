@@ -9,6 +9,8 @@
 #include <time.h>
 
 const int NUM_ROOMS = 7;
+const int RM_NM_RD = 11;
+const int CXN_NM_RD = 14;
 
 int getRandom(int min, int max) {
 	return (rand() % (max+1-min) + min);
@@ -113,9 +115,9 @@ int main(int argc, char const *argv[])
 	/* create directory, checking for existence first */
 	struct stat checkfor = {0};
 
-	if (stat(dirName, &checkfor) == -1) {
-	    mkdir(dirName, 0755);
-	}
+	// if (stat(dirName, &checkfor) == -1) {
+	//     mkdir(dirName, 0755);
+	// }
 
 	/* create room/file name array */
 	char * rooms[10];
@@ -134,13 +136,49 @@ int main(int argc, char const *argv[])
 	char filepath[50];
 	int file_descriptor,
 		startPt = getRandom(0,9),
-		file_status = createFiles(filepath, dirName, rooms, 50, startPt, startPt+NUM_ROOMS);
-	/* exit if file(s) couldn't be created */
-	if(file_status == 1)
-		exit(1);
+		file_status;
+	// file_status = createFiles(filepath, dirName, rooms, 50, startPt, startPt+NUM_ROOMS);
+	// /* exit if file(s) couldn't be created */
+	// if(file_status == 1)
+	// 	exit(1);
 
 	/* read start file and present to user */
+	/* open/create files */
+	startPt = 4; // testing only
+	char testDir[] = "test";
+	clearString(filepath, 50);
+	sprintf(filepath, "%s/%s.room", testDir, rooms[startPt]);
+	file_descriptor = open(filepath, O_RDONLY);
+	if (file_descriptor == -1)
+	{
+		return 1;
+	}
 
+	struct stat statbuf;
+	int r;
+	r = stat(filepath, &statbuf);
+	printf("The logical size of %s is %ld bytes\n", filepath, statbuf.st_size);
+	char buffer[200];
+	clearString(buffer, 100);
+	// lseek(file_descriptor, 0, SEEK_SET); // Reset the file pointer to the beginning of the file
+	// int nread = read(file_descriptor, buffer, statbuf.st_size);
+	// printf("%d\n",nread);
+	// printf("%s\n",buffer);
+	// close(file_descriptor);
 
+	FILE * pFile;
+	pFile = fopen(filepath,"r");
+	if (pFile != NULL)
+	{
+		fgets (buffer, 100,pFile);
+		puts(buffer);
+	}
+	fclose(pFile);
+
+	// clearString(buffer, 100);
+	// lseek(file_descriptor, 1+CXN_NM_RD, SEEK_CUR); // Reset the file pointer to the beginning of the file
+	// nread = read(file_descriptor, buffer, sizeof(buffer)-1);
+	// printf("%d\n",nread);
+	// printf("%s\n",buffer);
 	return 0;
 }
