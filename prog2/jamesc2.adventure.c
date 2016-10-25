@@ -44,7 +44,6 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 
 		/* open/create files */
 		clearString(filepath, len);
-		// memset(filepath, '\0', len);
 		sprintf(filepath, "%s/%s.room", dirName, rooms[curIdx]);
 		file_descriptor = open(filepath, O_RDWR | O_CREAT | O_APPEND, 0644);
 		if (file_descriptor == -1)
@@ -54,19 +53,16 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 
 		/* prepare strings */
 		clearString(typeTxt, 10);
-		// memset(typeTxt, '\0', 10);
 		if(i == startPt)
 			sprintf(typeTxt,"START_ROOM");
 		else if(i < endPt-1)
 			sprintf(typeTxt,"MID_ROOM");
 		else
 			sprintf(typeTxt,"END_ROOM");
-		// memset(prntName, '\0', 30);
+
 		clearString(prntName, 30);
 		clearString(prntCnxn, 40);
 		clearString(prntType, 30);
-		// memset(prntCnxn, '\0', 40);
-		// memset(prntType, '\0', 30);
 		sprintf(prntName, "%s%s\n", rmName, rooms[curIdx]);
 		sprintf(prntType, "%s%s\n", rmType, typeTxt);
 
@@ -75,16 +71,21 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 		// figure connections
 		int x,
 			getIdx = getRandom(startPt,endPt);
-		while(start == i)
+		while(getIdx == i) {
 			getIdx = getRandom(startPt,endPt);
+			printf("getIdx(%d) equaled i(%d)\n", i, getIdx);
+		}
 
 		int numLoops = getRandom(3,6);
 		for (x = 0; x < numLoops; x++)
 		{
 			if(getIdx == i)			// don't want a room linked to itself!
-				getIdx++;
+				getIdx += 1;
 			if(getIdx >= endPt)		// make sure we don't include rooms that don't matter! (endPt-1 adjusted is last index in group of rooms)
 				getIdx = startPt;
+				if(getIdx == i)			// don't want a room linked to itself! (one more check)
+					getIdx += 1;
+			printf("i=%d, getidx=%d\n", i, getIdx);
 			clearString(prntCnxn, 40);
 			sprintf(prntCnxn, "%s%d: %s\n", cnxn, 1, rooms[adjustIdx(getIdx,maxIdx)]);
 			write(file_descriptor, prntCnxn, strlen(prntCnxn) * sizeof(char));
