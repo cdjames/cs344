@@ -38,14 +38,10 @@ void copySubString(char * string, char * retString, int start, char until) {
 	}
 }
 
-int validateInput(char * input, char ** rooms, int startPt, int endPt) {
+int validateInput(char * input, char * rooms) {
 	int i;
-	for (i = startPt; i < endPt; i++)
-	{
-		printf("howdy%s\n", rooms[i]);
-		if(strcmp(input, rooms[i]) == 0)
-			return 0;
-	}
+	if(strstr(rooms, input) != NULL)
+		return 0;
 	printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.");
 	return 1;
 }
@@ -155,9 +151,7 @@ int main(int argc, char const *argv[])
 	rooms[7] = "Basement";
 	rooms[8] = "Dining";
 	rooms[9] = "Bedroom";
-	char ** possRooms;
-	// possRooms = realloc(possRooms, 10 * sizeof(char*));
-	/* create files */
+	char possRooms[100];
 	char filepath[50];
 	int file_descriptor,
 		startPt = getRandom(0,9),
@@ -212,15 +206,9 @@ int main(int argc, char const *argv[])
 		clearString(allRooms, 100);
 		char roomNameOnly[10];
 		char roomOnly[11];
-		possRooms = malloc(6 * sizeof(char*));
-		char testStr[] = "rad";
-		// possRooms[0] = testStr;
-		// possRooms[1] = "Drawing";
-		// possRooms[2] = "Office";
-		// possRooms[3] = "Living";
-		// possRooms[4] = "Attic";
-		// possRooms[5] = "Pantry";
+
 		int i=0;
+		clearString(possRooms, 100);
 		while(!feof(pFile)){
 			clearString(buffer, 100);
 			fgets (buffer, 100 ,pFile);
@@ -233,18 +221,14 @@ int main(int argc, char const *argv[])
 					clearString(roomNameOnly, 10);
 					strncpy(roomNameOnly, buffer+RM_NM_RD, 8);
 					
-					
-					// printf("CURRENT LOCATION: %s", roomOnly);
-				}
+									}
 			}
 			else {
 				/* process connection*/
 				clearString(roomOnly, 11);
 				strncpy(roomOnly, buffer+CXN_NM_RD, 9);
 				roomOnly[strlen(roomOnly)-1] = '\0';
-				possRooms[i] = roomOnly;
-				printf("possRooms=%s\n", possRooms[i]);
-				// roomOnly[strlen(roomOnly)] = ',';
+				strcat(possRooms, roomOnly);
 				strcat(roomOnly, ", ");
 				strncat(allRooms, roomOnly, strlen(roomOnly));
 			}
@@ -262,20 +246,8 @@ int main(int argc, char const *argv[])
 			printf("WHERE TO? >");
 			scanf("%8s", input);
 			printf("%s\n", input);
-			// int h;
-			// for (h = 0; h < i; h++)
-			// {
-			// 	printf("howdy%s\n", possRooms[h]);
-			// 	if(strcmp(input, possRooms[h]) == 0){
-			// 		done = 1;
-			// 		continue;
-			// 	}
-			// }
-			// printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.");
+		} while (validateInput(input, possRooms) != 0);
 
-		} while (validateInput(input, rooms, 0, MAXIDX) != 0);
-
-		
 	}
 	fclose(pFile);
 
