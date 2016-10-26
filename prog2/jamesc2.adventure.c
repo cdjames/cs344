@@ -11,6 +11,8 @@
 const int NUM_ROOMS = 7;
 const int RM_NM_RD = 11;
 const int CXN_NM_RD = 14;
+const int MAXIDX = 9;
+
 
 int getRandom(int min, int max) {
 	return (rand() % (max+1-min) + min);
@@ -24,6 +26,28 @@ int adjustIdx(int start, int maxIdx){
 	if(start > maxIdx)
 		start = start - (maxIdx+1);
 	return start;
+}
+
+void copySubString(char * string, char * retString, int start, char until) {
+	int i = start;
+
+	while(string[i] != until){
+		retString[i] = string[i];
+		// printf("%c, ", retString[i]);
+		i++;
+	}
+}
+
+int validateInput(char * input, char ** rooms, int startPt, int endPt) {
+	int i;
+	for (i = startPt; i < endPt; i++)
+	{
+		printf("howdy%s\n", rooms[i]);
+		if(strcmp(input, rooms[i]) == 0)
+			return 0;
+	}
+	printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.");
+	return 1;
 }
 
 int createFiles(char * filepath, char * dirName, char ** rooms, int len, int startPt, int endPt){
@@ -131,7 +155,8 @@ int main(int argc, char const *argv[])
 	rooms[7] = "Basement";
 	rooms[8] = "Dining";
 	rooms[9] = "Bedroom";
-
+	char ** possRooms;
+	// possRooms = realloc(possRooms, 10 * sizeof(char*));
 	/* create files */
 	char filepath[50];
 	int file_descriptor,
@@ -144,34 +169,113 @@ int main(int argc, char const *argv[])
 
 	/* read start file and present to user */
 	/* open/create files */
-	startPt = 4; // testing only
+
+	startPt = 0; // testing only
+	int endPt = startPt + NUM_ROOMS-1;
 	char testDir[] = "test";
 	clearString(filepath, 50);
 	sprintf(filepath, "%s/%s.room", testDir, rooms[startPt]);
-	file_descriptor = open(filepath, O_RDONLY);
-	if (file_descriptor == -1)
-	{
-		return 1;
-	}
 
 	struct stat statbuf;
 	int r;
 	r = stat(filepath, &statbuf);
-	printf("The logical size of %s is %ld bytes\n", filepath, statbuf.st_size);
-	char buffer[200];
-	clearString(buffer, 100);
-	// lseek(file_descriptor, 0, SEEK_SET); // Reset the file pointer to the beginning of the file
-	// int nread = read(file_descriptor, buffer, statbuf.st_size);
-	// printf("%d\n",nread);
-	// printf("%s\n",buffer);
-	// close(file_descriptor);
+	// printf("The logical size of %s is %ld bytes\n", filepath, statbuf.st_size);
+
+	char buffer[100];
 
 	FILE * pFile;
 	pFile = fopen(filepath,"r");
 	if (pFile != NULL)
 	{
-		fgets (buffer, 100,pFile);
-		puts(buffer);
+		
+		/* figure process type */
+		fseek(pFile, -22, SEEK_END);
+		clearString(buffer, 100);
+		fgets (buffer, 100 ,pFile);
+		while(buffer[0] != 'R'){
+			clearString(buffer, 100);
+			fgets (buffer, 100 ,pFile);
+		}
+		/* check for S, M, E (start, mid, end)*/
+		if(buffer[RM_NM_RD] == 'E')
+			puts("end");
+			/* do game over stuff */
+		else if(buffer[RM_NM_RD] == 'M')
+			puts("mid");
+			/* increment turn counter */
+		else
+			puts("start");
+
+		/* back to beginning and process rest of file */
+		rewind(pFile);
+		char allRooms[100];
+		clearString(allRooms, 100);
+		char roomNameOnly[10];
+		char roomOnly[11];
+		possRooms = malloc(6 * sizeof(char*));
+		char testStr[] = "rad";
+		// possRooms[0] = testStr;
+		// possRooms[1] = "Drawing";
+		// possRooms[2] = "Office";
+		// possRooms[3] = "Living";
+		// possRooms[4] = "Attic";
+		// possRooms[5] = "Pantry";
+		int i=0;
+		while(!feof(pFile)){
+			clearString(buffer, 100);
+			fgets (buffer, 100 ,pFile);
+				/* it's the first room */
+			if(buffer[0] == 'R'){
+				/* process rooms*/
+				if(buffer[5] == 'N'){
+					/* process name */
+					
+					clearString(roomNameOnly, 10);
+					strncpy(roomNameOnly, buffer+RM_NM_RD, 8);
+					
+					
+					// printf("CURRENT LOCATION: %s", roomOnly);
+				}
+			}
+			else {
+				/* process connection*/
+				clearString(roomOnly, 11);
+				strncpy(roomOnly, buffer+CXN_NM_RD, 9);
+				roomOnly[strlen(roomOnly)-1] = '\0';
+				possRooms[i] = roomOnly;
+				printf("possRooms=%s\n", possRooms[i]);
+				// roomOnly[strlen(roomOnly)] = ',';
+				strcat(roomOnly, ", ");
+				strncat(allRooms, roomOnly, strlen(roomOnly));
+			}
+			i++;
+		}
+		allRooms[strlen(allRooms)-4] = '.';
+		allRooms[strlen(allRooms)-3] = '\0';
+
+		/* get input from user */
+		char input[9];
+		int done = 0;
+		do {
+			printf("CURRENT LOCATION: %s", roomNameOnly);
+			printf("POSSIBLE CONNECTIONS: %s\n", allRooms);
+			printf("WHERE TO? >");
+			scanf("%8s", input);
+			printf("%s\n", input);
+			// int h;
+			// for (h = 0; h < i; h++)
+			// {
+			// 	printf("howdy%s\n", possRooms[h]);
+			// 	if(strcmp(input, possRooms[h]) == 0){
+			// 		done = 1;
+			// 		continue;
+			// 	}
+			// }
+			// printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.");
+
+		} while (validateInput(input, rooms, 0, MAXIDX) != 0);
+
+		
 	}
 	fclose(pFile);
 
@@ -182,3 +286,4 @@ int main(int argc, char const *argv[])
 	// printf("%s\n",buffer);
 	return 0;
 }
+
