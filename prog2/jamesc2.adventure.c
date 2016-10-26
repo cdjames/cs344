@@ -28,22 +28,167 @@ int adjustIdx(int start, int maxIdx){
 	return start;
 }
 
-void copySubString(char * string, char * retString, int start, char until) {
-	int i = start;
+// void copySubString(char * string, char * retString, int start, char until) {
+// 	int i = start;
 
-	while(string[i] != until){
-		retString[i] = string[i];
-		// printf("%c, ", retString[i]);
-		i++;
-	}
-}
+// 	while(string[i] != until){
+// 		retString[i] = string[i];
+// 		// printf("%c, ", retString[i]);
+// 		i++;
+// 	}
+// }
 
 int validateInput(char * input, char * rooms) {
 	int i;
-	if(strstr(rooms, input) != NULL)
+	char tmp[9];
+	strcpy(tmp, input);
+	if(strstr(rooms, strcat(tmp, ";")) != NULL)
 		return 0;
-	printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.");
+	
+	printf("\nHUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n\n");
 	return 1;
+}
+
+char figureRoomType(FILE * file, signed int seekFrom, unsigned int size){
+	/* figure process type */
+	char buffer[size];
+	clearString(buffer, size);
+
+	fseek(file, seekFrom, SEEK_END);
+	fgets (buffer, size, file);
+	while(buffer[0] != 'R'){
+		clearString(buffer, size);
+		fgets (buffer, size, file);
+	}
+
+	return buffer[RM_NM_RD];
+}
+
+void getInput(char **retString, char * roomNmOnly, char * allRooms, char * possRooms){
+	*retString = malloc( sizeof(char) * 9 );
+	int done = 0;
+	do {
+		printf("CURRENT LOCATION: %s\n", roomNmOnly);
+		printf("POSSIBLE CONNECTIONS: %s\n", allRooms);
+		printf("WHERE TO? >");
+		scanf("%8s", *retString);
+		// printf("%s\n", *retString);
+	} while (validateInput(*retString, possRooms) != 0);
+}
+
+void printAndGetInput(FILE * file, char **nextRoom){
+	/* back to beginning and process rest of file */
+	// *nextRoom = malloc( sizeof(char) * 9 );
+	rewind(file);
+	char allRooms[100];
+	char buffer[100];
+	clearString(allRooms, 100);
+	char roomNameOnly[10];
+	char roomOnly[11];
+
+	int i=0;
+	char possRooms[100];
+	clearString(possRooms, 100);
+	while(!feof(file)){
+		clearString(buffer, 100);
+		fgets (buffer, 100 ,file);
+			/* it's the first room */
+		if(buffer[0] == 'R'){
+			/* process rooms*/
+			if(buffer[5] == 'N'){
+				/* process name */
+				
+				clearString(roomNameOnly, 10);
+				strncpy(roomNameOnly, buffer+RM_NM_RD, 8);
+				if(roomNameOnly[strlen(roomNameOnly)-1] == '\n'){
+					roomNameOnly[strlen(roomNameOnly)-1] = '\0';
+				}
+				
+			}
+		}
+		else {
+			/* process connection*/
+			clearString(roomOnly, 11);
+			strncpy(roomOnly, buffer+CXN_NM_RD, 9);
+			roomOnly[strlen(roomOnly)-1] = '\0';
+			strcat(possRooms, roomOnly);
+			strcat(possRooms, ";");
+			strcat(roomOnly, ", ");
+			strncat(allRooms, roomOnly, strlen(roomOnly));
+		}
+		i++;
+	}
+	allRooms[strlen(allRooms)-4] = '.';
+	allRooms[strlen(allRooms)-3] = '\0';
+
+	/* get input from user */
+	getInput(nextRoom, roomNameOnly, allRooms, possRooms);
+
+	/* add next room to path list */
+	// strcat(path, *nextRoom);
+	// strcat(path, ";");
+}
+
+int doRoomActions(char * dir, char * room, char **nextRoom, char **path, int visitedStFlag){
+	// path = malloc( sizeof(char) * 200 );
+	char filepath[50];
+	clearString(filepath, 50);
+	sprintf(filepath, "%s/%s.room", dir, room);
+	FILE * file;
+	file = fopen(filepath,"r");
+	// puts(filepath);
+	if (file != NULL)
+	{
+		
+	// 	// struct stat statbuf;
+	// 	// int r;
+	// 	// r = stat(filepath, &statbuf);
+	// 	// printf("The logical size of %s is %ld bytes\n", filepath, statbuf.st_size);
+
+		char buffer[100];
+		char letter;
+		/* figure room type */
+		letter = figureRoomType(file, -22, 100);
+
+	// 	/* check for S, M, E (start, mid, end)*/
+		// if(buffer[RM_NM_RD] == 'E')
+			// printf("%c\n", letter);
+		if(letter == 'E'){
+			// puts("end");
+			fclose(file);
+			return 1;
+			/* do game over stuff */
+		}
+		// else(letter == 'M') {
+		else {
+			// puts("start or mid");
+			/* increment turn counter */
+			printAndGetInput(file, nextRoom);
+			/* append the next room to the path */
+			// printf("the next room is %s\n", *nextRoom);
+			strcat(*path, *nextRoom);
+			strcat(*path, ";");
+		}
+		// else {
+		// 	puts("start");
+		// 	/* append first room to the path */
+		// 	if(visitedStFlag != 1){
+		// 		strcat(*path, room);
+		// 		strcat(*path, ";");
+		// 	}
+		// 	printAndGetInput(file, nextRoom);
+		// 	strcat(*path, *nextRoom);
+		// 	strcat(*path, ";");
+		// }
+		
+
+	// 	/* back to beginning and process rest of file */
+
+	// 	/* room is validated, repeat cycle */
+	}
+	// fclose(file);
+	printf("\n");
+	return 0;
 }
 
 int createFiles(char * filepath, char * dirName, char ** rooms, int len, int startPt, int endPt){
@@ -131,6 +276,10 @@ int main(int argc, char const *argv[])
 	int pid = getpid();
 	memset(dirName, '\0', 30);
 	sprintf(dirName, "jamesc2.adventure.%d", pid);
+	char * input;
+	char * path;
+	path = malloc( sizeof(char) * 200 );
+	FILE * pFile;
 
 	/* create directory, checking for existence first */
 	struct stat checkfor = {0};
@@ -151,7 +300,8 @@ int main(int argc, char const *argv[])
 	rooms[7] = "Basement";
 	rooms[8] = "Dining";
 	rooms[9] = "Bedroom";
-	char possRooms[100];
+	// char possRooms[100];
+	// char path[200];
 	char filepath[50];
 	int file_descriptor,
 		startPt = getRandom(0,9),
@@ -164,98 +314,25 @@ int main(int argc, char const *argv[])
 	/* read start file and present to user */
 	/* open/create files */
 
-	startPt = 0; // testing only
+	startPt = 4; // testing only
 	int endPt = startPt + NUM_ROOMS-1;
 	char testDir[] = "test";
-	clearString(filepath, 50);
-	sprintf(filepath, "%s/%s.room", testDir, rooms[startPt]);
-
-	struct stat statbuf;
-	int r;
-	r = stat(filepath, &statbuf);
-	// printf("The logical size of %s is %ld bytes\n", filepath, statbuf.st_size);
-
-	char buffer[100];
-
-	FILE * pFile;
-	pFile = fopen(filepath,"r");
-	if (pFile != NULL)
-	{
-		
-		/* figure process type */
-		fseek(pFile, -22, SEEK_END);
-		clearString(buffer, 100);
-		fgets (buffer, 100 ,pFile);
-		while(buffer[0] != 'R'){
-			clearString(buffer, 100);
-			fgets (buffer, 100 ,pFile);
-		}
-		/* check for S, M, E (start, mid, end)*/
-		if(buffer[RM_NM_RD] == 'E')
-			puts("end");
-			/* do game over stuff */
-		else if(buffer[RM_NM_RD] == 'M')
-			puts("mid");
-			/* increment turn counter */
-		else
-			puts("start");
-
-		/* back to beginning and process rest of file */
-		rewind(pFile);
-		char allRooms[100];
-		clearString(allRooms, 100);
-		char roomNameOnly[10];
-		char roomOnly[11];
-
-		int i=0;
-		clearString(possRooms, 100);
-		while(!feof(pFile)){
-			clearString(buffer, 100);
-			fgets (buffer, 100 ,pFile);
-				/* it's the first room */
-			if(buffer[0] == 'R'){
-				/* process rooms*/
-				if(buffer[5] == 'N'){
-					/* process name */
-					
-					clearString(roomNameOnly, 10);
-					strncpy(roomNameOnly, buffer+RM_NM_RD, 8);
-					
-									}
-			}
-			else {
-				/* process connection*/
-				clearString(roomOnly, 11);
-				strncpy(roomOnly, buffer+CXN_NM_RD, 9);
-				roomOnly[strlen(roomOnly)-1] = '\0';
-				strcat(possRooms, roomOnly);
-				strcat(roomOnly, ", ");
-				strncat(allRooms, roomOnly, strlen(roomOnly));
-			}
-			i++;
-		}
-		allRooms[strlen(allRooms)-4] = '.';
-		allRooms[strlen(allRooms)-3] = '\0';
-
-		/* get input from user */
-		char input[9];
-		int done = 0;
-		do {
-			printf("CURRENT LOCATION: %s", roomNameOnly);
-			printf("POSSIBLE CONNECTIONS: %s\n", allRooms);
-			printf("WHERE TO? >");
-			scanf("%8s", input);
-			printf("%s\n", input);
-		} while (validateInput(input, possRooms) != 0);
-
+	int result = -1;
+	int roomCount = 0;
+	result = doRoomActions(testDir, rooms[startPt], &input, &path, 0);
+	while(result != 1){
+		result = doRoomActions(testDir, input, &input, &path, 1);
+		roomCount++;
 	}
-	fclose(pFile);
+	
+	printf("YOU HAVE FOUND THE END ROOM. CONGRATULATIONS!\n");
+	printf("YOU TOOK %d STEPS.\n", roomCount);
+	printf("YOUR PATH TO VICTORY WAS:\n");
+	/* print visited rooms */
+	printf("%s\n", path);
+	
+	free(input);
 
-	// clearString(buffer, 100);
-	// lseek(file_descriptor, 1+CXN_NM_RD, SEEK_CUR); // Reset the file pointer to the beginning of the file
-	// nread = read(file_descriptor, buffer, sizeof(buffer)-1);
-	// printf("%d\n",nread);
-	// printf("%s\n",buffer);
 	return 0;
 }
 
