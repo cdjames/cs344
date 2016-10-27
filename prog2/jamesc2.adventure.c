@@ -1,5 +1,11 @@
+/*********************************************************************
+** Author: Collin James
+** Date: 10/27/16
+** Description: An adventure-like game in C
+** compile with gcc –o jamesc2.adventure jamesc2.adventure.c -lpthread
+*********************************************************************/
 
-// compile with gcc –o jamesc2.adventure jamesc2.adventure.c -lpthread
+/* includes */
 #include <fcntl.h>		// for file manipulation
 #include <stdio.h>		// printing, etc
 #include <stdlib.h>		// mkdir, etc.
@@ -10,83 +16,99 @@
 #include <time.h>
 
 /* constants */
-const int NUM_ROOMS = 7;
-const int RM_NM_RD = 11;
-const int CXN_NM_RD = 14;
-const int MAXIDX = 9;
-const char * DIR = "jamesc2.adventure";
-const char * DELIM = ";";
+const int NUM_ROOMS = 7;	
+const int RM_NM_RD = 11;	// point in string to start reading (ROOM TYPE: & ROOM NAME: )
+const int CXN_NM_RD = 14;	// point in string to start reading (CONNECTION #: )
+const int MAXIDX = 9;		// max index in size 10 array
+const char * DIR = "jamesc2.adventure"; // beginning of directory name
+const char * DELIM = ";";	// delimeter used in various string operations
 
-
+/* functions */
+/*********************************************************************
+** Description: 
+** Return a random number
+**
+** Ex: min = 3, max = 9, rand % (7) = 0...6 + 3 = 3...9
+*********************************************************************/
 int getRandom(int min, int max) {
 	return (rand() % (max+1-min) + min);
 }
 
+/*********************************************************************
+** Description: 
+** Automates memset() because 'memset' isn't very descriptive
+*********************************************************************/
 void clearString(char * theString, int size) {
 	memset(theString, '\0', size);
 }
 
-int adjustIdx(int start, int maxIdx){
-	if(start > maxIdx)
-		start = start - (maxIdx+1);
-	return start;
+/*********************************************************************
+** Description: 
+** Given a number, convert to a logical index
+** Ex: receives idx 10, maxIdx 9, returns 0 (10-(9+1))
+*********************************************************************/
+int adjustIdx(int idx, int maxIdx){
+	if(idx > maxIdx)
+		idx -= (maxIdx+1);
+	return idx;
 }
 
+/*********************************************************************
+** Description: 
+** Create a directory, create and write to 7 files representing rooms.
+** dirName = directory name
+** rooms = array of char * (strings)
+** len = length of the filepath string
+** startPt = starting index (0-9)
+** endPt = ending index (7-16)
+*********************************************************************/
 int createFiles(char * dirName, char ** rooms, int len, int startPt, int endPt){
-	int file_descriptor,
-		maxIdx = 9,
+	/* variables */
+	int file_descriptor,	// hold file status
+		maxIdx = MAXIDX,	
 		i,
-		curIdx;
+		curIdx;				// hold logical index for rooms array
+	/* strings */
 	char rmName[] = "ROOM NAME: ",
 	 	cnxn[] = "CONNECTION ",
 	 	rmType[] = "ROOM TYPE: ",
-	 	filepath[50],
-	 	typeTxt[11],
-	 	prntName[30],
-	 	prntCnxn[40],
-	 	prntType[30];
+	 	filepath[50], 		// hold a file path
+	 	typeTxt[11],		// hold type of room (MID_ROOM, etc.)
+	 	prntName[30],		// hold rmName[] and name of room
+	 	prntCnxn[40],		// hold cnxn[] and name of connected room
+	 	prntType[30];		// hold rmType[] and typeTxt[]
 
-	
+	/* create a file for 7 rooms from startPt to endPt */
 	for (i = startPt; i < endPt; i++)
 	{
+		/* get logical index (0-9) */
 		curIdx = adjustIdx(i, maxIdx);
 
-		/* open/create files */
+		/* make a filepath */
 		clearString(filepath, len);
 		sprintf(filepath, "%s/%s.room", dirName, rooms[curIdx]);
-		// puts(filepath);
+		
+		/* open/create file (rw_r__r__) */
 		file_descriptor = open(filepath, O_RDWR | O_CREAT | O_APPEND, 0644);
-		if (file_descriptor == -1)
-		{
+		if (file_descriptor == -1) // get out if can't create file
 			return 1;
-		}
 
-		/* prepare strings */
-		clearString(typeTxt, 11);
-		if(i == startPt)
-			sprintf(typeTxt,"START_ROOM");
-		else if(i < endPt-1)
-			sprintf(typeTxt,"MID_ROOM");
-		else
-			sprintf(typeTxt,"END_ROOM");
-
+		/* prepare room name string */
 		clearString(prntName, 30);
-		clearString(prntCnxn, 40);
-		clearString(prntType, 30);
 		sprintf(prntName, "%s%s\n", rmName, rooms[curIdx]);
-		sprintf(prntType, "%s%s\n", rmType, typeTxt);
-
+		
 		/* write name line to file */
 		write(file_descriptor, prntName, strlen(prntName) * sizeof(char));
 
 		/* figure connections */
 		int x, 	// for your loop
-			getIdx = getRandom(startPt,endPt); // get a random number
+			getIdx = getRandom(startPt,endPt); // start at a random room for connections
+		
 		/* make sure you don't link a room to itself*/
-		while(getIdx == i) {
+		while(getIdx == i)
 			getIdx = getRandom(startPt,endPt);
-		}
 
+		/* for each room, make a random # of connections */
 		int numLoops = getRandom(3,6); // create a random number of connections
 		for (x = 0; x < numLoops; x++)
 		{
@@ -98,58 +120,74 @@ int createFiles(char * dirName, char ** rooms, int len, int startPt, int endPt){
 					getIdx += 1;
 			/* clear the string out, make a line, and write out */
 			clearString(prntCnxn, 40);
-			sprintf(prntCnxn, "%s%d: %s\n", cnxn, 1, rooms[adjustIdx(getIdx,maxIdx)]);
+			sprintf(prntCnxn, "%s%d: %s\n", cnxn, x+1, rooms[adjustIdx(getIdx,maxIdx)]);
 			write(file_descriptor, prntCnxn, strlen(prntCnxn) * sizeof(char));
+			
+			/* start next iteration at next room */
 			getIdx++;
 		}
+
+		/* prepare room type string */
+		clearString(typeTxt, 11);
+		if(i == startPt)
+			sprintf(typeTxt,"START_ROOM");
+		else if(i < endPt-1)
+			sprintf(typeTxt,"MID_ROOM");
+		else
+			sprintf(typeTxt,"END_ROOM");
+		clearString(prntType, 30);
+		sprintf(prntType, "%s%s\n", rmType, typeTxt);
 		/* finish writing type line and close */
 		write(file_descriptor, prntType, strlen(prntType) * sizeof(char));
 		close(file_descriptor);
 	}
-	
+	/* return with no errors */
 	return 0;
 }
 
+/*********************************************************************
+** Description: 
+** Validate user's room entries and return 0 if good, print error and 1 if bad
+** input = a room ("Dining")
+** rooms = string of room names delimited by ; ("Dining;Foyer;Attic;")
+*********************************************************************/
 int validateInput(char * input, char * rooms) {
 	int i;
 	char tmp[9];
-	/* we want input elsewhere, so preserve it */
+	/* we want to use 'input' elsewhere, so preserve it */
 	strcpy(tmp, input);
+	/* search rooms for 'roomname;' and exit successfully if found */
 	if(strstr(rooms, strcat(tmp, DELIM)) != NULL)
 		return 0;
-	
+	/* string not found */
 	printf("\nHUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n\n");
 	return 1;
 }
 
-char figureRoomType(FILE * file, signed int seekFrom, unsigned int size){
-	/* figure process type */
-	char buffer[size];
-	clearString(buffer, size);
-
-	fseek(file, seekFrom, SEEK_END);
-	fgets (buffer, size, file);
-	while(buffer[0] != 'R'){
-		clearString(buffer, size);
-		fgets (buffer, size, file);
-	}
-
-	return buffer[RM_NM_RD];
-}
-
+/*********************************************************************
+** Description: 
+** Print location, etc., and receive a string, max size 8 (Basement)
+** retString = pointer to char * (this is the "return" value)
+** roomNmOnly = name of a room ("Attic")
+** allRooms = string of all connected rooms ("Foyer, Dining, Bedroom.")
+*********************************************************************/
 void getInput(char **retString, char * roomNmOnly, char * allRooms, char * possRooms){
-	// printf("retString=%p\n", retString);
+	/* allocate your string w/ room for \0 */
 	*retString = malloc( sizeof(char) * 9 );
-	int done = 0;
+	/* print and accept input while the string is not a possible connection */
 	do {
 		printf("CURRENT LOCATION: %s\n", roomNmOnly);
 		printf("POSSIBLE CONNECTIONS: %s\n", allRooms);
 		printf("WHERE TO? >");
 		scanf("%8s", *retString);
-		// printf("%s\n", *retString);
 	} while (validateInput(*retString, possRooms) != 0);
 }
 
+/*********************************************************************
+** Description: Read a file from beginning to last connection, print
+** file = FILE pointer to hold file status
+** nextRoom = pointer to a char *, will be sent to getInput() and "returned" with name of next room
+*********************************************************************/
 void printAndGetInput(FILE * file, char **nextRoom){
 	char allRooms[100],
 	 	buffer[100],
@@ -162,21 +200,23 @@ void printAndGetInput(FILE * file, char **nextRoom){
 	// int i=0;
 	/* back to beginning and process rest of file */
 	rewind(file);
-	while(!feof(file)){
+	while( !feof(file) ){
+		/* get a line from the file */
 		clearString(buffer, 100);
-		fgets (buffer, 100 ,file);
-			/* it's the first room */
+		fgets(buffer, 100, file);
+
+		/* it's the first room (R)OOM NAME/(R)OOM TYPE*/
 		if(buffer[0] == 'R'){
-			/* process rooms*/
+			/* process room name - ROOM (N)AME */
 			if(buffer[5] == 'N'){
-				/* process name */
+				/* process name by copying info in line AFTER */
 				clearString(roomNameOnly, 10);
 				strncpy(roomNameOnly, buffer+RM_NM_RD, 8);
 				if(roomNameOnly[strlen(roomNameOnly)-1] == '\n'){
 					/* get rid of \n at end of string */
 					roomNameOnly[strlen(roomNameOnly)-1] = '\0';
 				}
-			}
+			} // note that ROOM TYPE lines are not processed!
 		} 
 		else {
 			/* process connection*/
@@ -197,6 +237,21 @@ void printAndGetInput(FILE * file, char **nextRoom){
 
 	/* get input from user */
 	getInput(nextRoom, roomNameOnly, allRooms, possRooms);
+}
+
+char figureRoomType(FILE * file, signed int seekFrom, unsigned int size){
+	/* figure process type */
+	char buffer[size];
+	clearString(buffer, size);
+
+	fseek(file, seekFrom, SEEK_END);
+	fgets (buffer, size, file);
+	while(buffer[0] != 'R'){
+		clearString(buffer, size);
+		fgets (buffer, size, file);
+	}
+
+	return buffer[RM_NM_RD];
 }
 
 int doRoomActions(char * dir, char * room, char **nextRoom, char **path){
