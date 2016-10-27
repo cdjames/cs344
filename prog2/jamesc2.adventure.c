@@ -65,6 +65,7 @@ char figureRoomType(FILE * file, signed int seekFrom, unsigned int size){
 }
 
 void getInput(char **retString, char * roomNmOnly, char * allRooms, char * possRooms){
+	// printf("retString=%p\n", retString);
 	*retString = malloc( sizeof(char) * 9 );
 	int done = 0;
 	do {
@@ -129,69 +130,41 @@ void printAndGetInput(FILE * file, char **nextRoom){
 	// strcat(path, ";");
 }
 
-int doRoomActions(char * dir, char * room, char **nextRoom, char **path, int visitedStFlag){
-	// path = malloc( sizeof(char) * 200 );
+int doRoomActions(char * dir, char * room, char **nextRoom, char **path){
 	char filepath[50];
 	clearString(filepath, 50);
 	sprintf(filepath, "%s/%s.room", dir, room);
+
 	FILE * file;
 	file = fopen(filepath,"r");
-	// puts(filepath);
-	if (file != NULL)
-	{
-		
-	// 	// struct stat statbuf;
-	// 	// int r;
-	// 	// r = stat(filepath, &statbuf);
-	// 	// printf("The logical size of %s is %ld bytes\n", filepath, statbuf.st_size);
+	
+	if (file != NULL){
 
 		char buffer[100];
 		char letter;
 		/* figure room type */
 		letter = figureRoomType(file, -22, 100);
 
-	// 	/* check for S, M, E (start, mid, end)*/
-		// if(buffer[RM_NM_RD] == 'E')
-			// printf("%c\n", letter);
+		/* check for S, M, E (start, mid, end)*/
 		if(letter == 'E'){
-			// puts("end");
 			fclose(file);
 			return 1;
 			/* do game over stuff */
 		}
-		// else(letter == 'M') {
 		else {
-			// puts("start or mid");
-			/* increment turn counter */
+
 			printAndGetInput(file, nextRoom);
 			/* append the next room to the path */
-			// printf("the next room is %s\n", *nextRoom);
 			strcat(*path, *nextRoom);
 			strcat(*path, ";");
 		}
-		// else {
-		// 	puts("start");
-		// 	/* append first room to the path */
-		// 	if(visitedStFlag != 1){
-		// 		strcat(*path, room);
-		// 		strcat(*path, ";");
-		// 	}
-		// 	printAndGetInput(file, nextRoom);
-		// 	strcat(*path, *nextRoom);
-		// 	strcat(*path, ";");
-		// }
-		
-
-	// 	/* back to beginning and process rest of file */
-
-	// 	/* room is validated, repeat cycle */
 	}
-	// fclose(file);
+	fclose(file);
 	printf("\n");
 	return 0;
 }
 
-int createFiles(char * filepath, char * dirName, char ** rooms, int len, int startPt, int endPt){
+int createFiles(char * dirName, char ** rooms, int len, int startPt, int endPt){
 	int file_descriptor,
 		maxIdx = 9,
 		i,
@@ -199,7 +172,8 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 	char rmName[] = "ROOM NAME: ",
 	 	cnxn[] = "CONNECTION ",
 	 	rmType[] = "ROOM TYPE: ",
-	 	typeTxt[10],
+	 	filepath[50],
+	 	typeTxt[11],
 	 	prntName[30],
 	 	prntCnxn[40],
 	 	prntType[30];
@@ -212,6 +186,7 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 		/* open/create files */
 		clearString(filepath, len);
 		sprintf(filepath, "%s/%s.room", dirName, rooms[curIdx]);
+		// puts(filepath);
 		file_descriptor = open(filepath, O_RDWR | O_CREAT | O_APPEND, 0644);
 		if (file_descriptor == -1)
 		{
@@ -219,7 +194,7 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 		}
 
 		/* prepare strings */
-		clearString(typeTxt, 10);
+		clearString(typeTxt, 11);
 		if(i == startPt)
 			sprintf(typeTxt,"START_ROOM");
 		else if(i < endPt-1)
@@ -231,6 +206,7 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 		clearString(prntCnxn, 40);
 		clearString(prntType, 30);
 		sprintf(prntName, "%s%s\n", rmName, rooms[curIdx]);
+		// printf("room=%s\n", rooms[curIdx]);
 		sprintf(prntType, "%s%s\n", rmType, typeTxt);
 
 		/* write to file */
@@ -240,7 +216,7 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 			getIdx = getRandom(startPt,endPt);
 		while(getIdx == i) {
 			getIdx = getRandom(startPt,endPt);
-			printf("getIdx(%d) equaled i(%d)\n", i, getIdx);
+			// printf("getIdx(%d) equaled i(%d)\n", i, getIdx);
 		}
 
 		int numLoops = getRandom(3,6);
@@ -252,7 +228,7 @@ int createFiles(char * filepath, char * dirName, char ** rooms, int len, int sta
 				getIdx = startPt;
 				if(getIdx == i)			// don't want a room linked to itself! (one more check)
 					getIdx += 1;
-			printf("i=%d, getidx=%d\n", i, getIdx);
+			// printf("i=%d, getidx=%d\n", i, getIdx);
 			clearString(prntCnxn, 40);
 			sprintf(prntCnxn, "%s%d: %s\n", cnxn, 1, rooms[adjustIdx(getIdx,maxIdx)]);
 			write(file_descriptor, prntCnxn, strlen(prntCnxn) * sizeof(char));
@@ -274,19 +250,19 @@ int main(int argc, char const *argv[])
 	/* create directory name */
 	char dirName[30];
 	int pid = getpid();
-	memset(dirName, '\0', 30);
+	clearString(dirName, 30);
 	sprintf(dirName, "jamesc2.adventure.%d", pid);
-	char * input;
-	char * path;
+	char * input;	// needs to be freed
+	char * path;	// needs to be freed
 	path = malloc( sizeof(char) * 200 );
 	FILE * pFile;
 
 	/* create directory, checking for existence first */
 	struct stat checkfor = {0};
 
-	// if (stat(dirName, &checkfor) == -1) {
-	//     mkdir(dirName, 0755);
-	// }
+	if (stat(dirName, &checkfor) == -1) {
+	    mkdir(dirName, 0755);
+	}
 
 	/* create room/file name array */
 	char * rooms[10];
@@ -302,26 +278,29 @@ int main(int argc, char const *argv[])
 	rooms[9] = "Bedroom";
 	// char possRooms[100];
 	// char path[200];
-	char filepath[50];
+	// char filepath[50];
 	int file_descriptor,
 		startPt = getRandom(0,9),
 		file_status;
-	// file_status = createFiles(filepath, dirName, rooms, 50, startPt, startPt+NUM_ROOMS);
-	// /* exit if file(s) couldn't be created */
-	// if(file_status == 1)
-	// 	exit(1);
-
-	/* read start file and present to user */
 	/* open/create files */
-
-	startPt = 4; // testing only
-	int endPt = startPt + NUM_ROOMS-1;
-	char testDir[] = "test";
+	file_status = createFiles(dirName, rooms, 50, startPt, startPt+NUM_ROOMS);
+	/* exit if file(s) couldn't be created */
+	if(file_status == 1)
+		exit(1);
+	
+	// startPt = 4; // testing only
+	// int endPt = startPt + NUM_ROOMS-1;
+	// char testDir[] = "test";
 	int result = -1;
 	int roomCount = 0;
-	result = doRoomActions(testDir, rooms[startPt], &input, &path, 0);
+
+	// result = doRoomActions(testDir, rooms[startPt], &input, &path, 0); // testing only
+	/* read start file and present to user */
+	result = doRoomActions(dirName, rooms[startPt], &input, &path);
+	/* continue through the remaining rooms */
 	while(result != 1){
-		result = doRoomActions(testDir, input, &input, &path, 1);
+		result = doRoomActions(dirName, input, &input, &path);
+		/* increment turn counter */
 		roomCount++;
 	}
 	
@@ -332,6 +311,7 @@ int main(int argc, char const *argv[])
 	printf("%s\n", path);
 	
 	free(input);
+	free(path);
 
 	return 0;
 }
