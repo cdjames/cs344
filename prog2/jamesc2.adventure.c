@@ -1,8 +1,8 @@
 /*********************************************************************
-** Author: Collin James
+** Author: Collin James, CS344
 ** Date: 10/27/16
 ** Description: An adventure-like game in C
-** compile with gcc –o jamesc2.adventure jamesc2.adventure.c -lpthread
+** compile with gcc jamesc2.adventure.c –o jamesc2.adventure -lpthread
 *********************************************************************/
 
 /* includes */
@@ -187,29 +187,52 @@ int createFiles(char * dirName, char ** rooms, int len, int startPt, int endPt){
 		write(file_descriptor, prntName, strlen(prntName) * sizeof(char));
 
 		/* figure connections */
-		int x, 	// for your loop
-			getIdx = getRandom(startPt,endPt); // start at a random room for connections
+		int x; 	// for your loop
+		signed int magicIdx = -1, 	// hold index of last room
+				   getIdx = getRandom(startPt,endPt), // start at a random room for connections
+				   prevGetIdx;		// save var for getIdx
 		
+		/* after start, must have a connection to previous room */
+		if(i != startPt)
+			magicIdx = (i-1);
+
 		/* make sure you don't link a room to itself*/
-		while(getIdx == i)
+		while(getIdx == i || getIdx == magicIdx)
 			getIdx = getRandom(startPt,endPt);
 
 		/* for each room, make a random # of connections */
-		int numLoops = getRandom(3,6); // create a random number of connections
+		int incDec = getRandom(1,2),   // for randomizing selection order of connections
+			numLoops = getRandom(3,6), // create a random number of connections
+			magicX = getRandom(0,(numLoops-1)); // insert your magicIdx at this point in the file
 		for (x = 0; x < numLoops; x++)
 		{
-			if(getIdx == i)			// don't want a room linked to itself!
-				getIdx += 1;
-			if(getIdx >= endPt)		// make sure we don't include rooms that don't matter! (endPt-1 adjusted is last index in group of rooms)
-				getIdx = startPt;
-				if(getIdx == i)			// don't want a room linked to itself! (one more check)
-					getIdx += 1;
+			/* check for magic index after start room */
+			if(x == magicX && i != startPt){
+				prevGetIdx = getIdx; // save your getIdx to resume later
+				getIdx = magicIdx;
+			}
+			/* if not magic index */
+			else 
+			{
+				if(getIdx == i || getIdx == magicIdx)		// don't want a room linked to itself or magic index twice!
+					getIdx++;
+				/* check for going over endpoint */
+				if(getIdx >= endPt)		// make sure we don't include rooms that don't matter! (endPt-1 adjusted is last index in group of rooms)
+				{
+					getIdx = startPt;
+					if(getIdx == i || getIdx == magicIdx)
+						getIdx++;
+				}
+
+				prevGetIdx = getIdx;
+			}
 			/* clear the string out, make a line, and write out */
 			clearString(prntCnxn, 40);
 			sprintf(prntCnxn, "%s%d: %s\n", cnxn, x+1, rooms[adjustIdx(getIdx,maxIdx)]);
 			write(file_descriptor, prntCnxn, strlen(prntCnxn) * sizeof(char));
 			
-			/* start next iteration at next room */
+			/* start next iteration at next getIdx */
+			getIdx = prevGetIdx;
 			getIdx++;
 		}
 
