@@ -3,3 +3,4 @@ datafile*
 file*
 *pdf
 test*
+*.o
