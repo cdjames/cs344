@@ -6,14 +6,9 @@
 
 /*********************************************************************
 ** Description: 
-** mycd
+** mycd changes directories; it supports relative and absolute paths
 
-mycd changes directories; it supports relative and absolute paths
-
-mycd receives two parameters: one which is a string that should represent
-a path and one which is an int that contains the num of params passed on 
-the command line. If the path begins with '/', it is an absolute path. 
-Otherwise it is relative.
+** more info in header file
 *********************************************************************/
 
 int mycd(char * dir, int numParams){
