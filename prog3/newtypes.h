@@ -10,11 +10,13 @@
 
 struct Statuskeeper
 {
-	int type,
-		sk_sig;
+	unsigned int type;
+	int sk_sig;
 };
 
-struct Statuskeeper * new_sk(int type, int sk_sig);
+struct Statuskeeper * new_sk(unsigned int type, int sk_sig);
+
+void free_sk(struct Statuskeeper * sk);
 
 enum Status { CONTINUE, EXIT };
 

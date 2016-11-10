@@ -8,14 +8,18 @@
 
 #ifndef __ST
 #define __ST
-# define ST      struct Statuskeeper
-# define ST_SIZE sizeof(struct Statuskeeper)
-# endif
+#define ST struct Statuskeeper
+#define ST_SIZE sizeof(struct Statuskeeper)
+#endif
 
-struct Statuskeeper * new_sk(int type, int sk_sig){
-	struct Statuskeeper * st = (struct Statuskeeper *) malloc(sizeof(struct Statuskeeper));
+struct Statuskeeper * new_sk(unsigned int type, int sk_sig){
+	struct Statuskeeper * st = (ST *) malloc(ST_SIZE);
 	st->type = type;
 	st->sk_sig = sk_sig;
 
 	return st;
+}
+
+void free_sk(struct Statuskeeper * sk){
+	free(sk);
 }

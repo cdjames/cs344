@@ -1,23 +1,22 @@
-all: prog testda
+all: smallsh
 
-prog: dynamicArray.o stackapp.o
-	gcc -g -Wall -std=c99 -o prog dynamicArray.o stackapp.o -lm # forgot what -lm does :(
+smallsh: newtypes.o builtins.o dynArray.o smallsh.o
+	gcc -g -Wall -std=c99 -o smallsh newtypes.o builtins.o dynArray.o smallsh.o -lm
 
-testda: dynamicArray.o testDynArray.o
-	gcc -g -Wall -std=c99 -o testda dynamicArray.o testDynArray.o
+smallsh.o: smallsh.c smallsh.h
+	gcc -g -Wall -std=c99 -c smallsh.c
 
-stackapp.o: stackapp.c dynArray.h
-	gcc -g -Wall -std=c99 -c stackapp.c
-
-testDynArray.o: testDynArray.c dynArray.h
-	gcc -g -Wall -std=c99 -c testDynArray.c
+dynArray.o: dynArray.c dynArray.h
+	gcc -g -Wall -std=c99 -c dynArray.c
 	
-dynamicArray.o: dynamicArray.c dynArray.h 
-	gcc -g -Wall -std=c99 -c dynamicArray.c 
+builtins.o: builtins.c builtins.h 
+	gcc -g -Wall -std=c99 -c builtins.c 
+
+newtypes.o: newtypes.c newtypes.h 
+	gcc -g -Wall -std=c99 -c newtypes.c 
 
 clean:
-	rm dynamicArray.o
-	rm stackapp.o
-	rm testDynArray.o
-	rm stackapp
-	rm testDynArray
+	rm builtins.o
+	rm newtypes.o
+	rm dynArray.o
+	rm smallsh.o
