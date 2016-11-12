@@ -17,6 +17,9 @@
 #include "dynArray.h"
 
 void getInput(char **retString);
+void clearString(char * theString, int size);
+void removeLineEnding(char ** input);
+void printOut(char * outString, int newln);
 
 /* Global constants */
 const int MAX_CMD_SIZE = 2048;
@@ -27,33 +30,56 @@ int main(int argc, char const *argv[])
 	struct Statuskeeper * theSK = new_sk(0, -1);
 	enum Status theStatus = CONTINUE;
 	char * input;
+	input = NULL; // create null pointer
+	char exitSt[] = "exit";
 	// *input = malloc( sizeof(char) * (2048) );
 
 	/* main logic */
-	getInput(&input);
-	fputs(input, stdout);
+	while(theStatus != EXIT){
+		getInput(&input); // validates input and puts in input variable
+		printOut(input, 1); // print with a line ending
+		/* look for exit command */
+		if(strcmp(input, exitSt) == 0)
+			theStatus = EXIT;
+	}
 	free_sk(theSK);
+	free(input);
 	return 0;
 }
 
-// /*********************************************************************
-// ** Description: 
-// ** Validate user's room entries and return 0 if good, print error and 1 if bad
-// ** input = a room ("Dining")
-// ** rooms = string of room names delimited by ; ("Dining;Foyer;Attic;")
-// *********************************************************************/
-// int validateInput(char * input, char * rooms) {
-// 	int i;
-// 	char tmp[9];
-// 	/* we want to use 'input' elsewhere, so preserve it */
-// 	strcpy(tmp, input);
-// 	/* search rooms for 'roomname;' and exit successfully if found */
-// 	if(strstr(rooms, strcat(tmp, DELIM)) != NULL)
-// 		return 0;
-// 	/* string not found */
-// 	printf("\nHUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n\n");
-// 	return 1;
-// }
+void removeLineEnding(char ** input){
+	char tmp[MAX_CMD_SIZE+1];
+	strcpy(tmp, *input);
+	int le = strlen(tmp)-1;
+	if(tmp[le] == '\n'){
+		tmp[le] = '\0';
+		strcpy(*input, tmp);
+	}
+}
+
+/*********************************************************************
+** Description: 
+** Validate user's room entries and return 0 if a possible command, 
+** 1 if a comment or blank line
+*********************************************************************/
+int validateInput(char **input) {
+	// int i = 0;
+	/* if time, implement input validation*/
+	// while(**input != '\0'){
+	// }
+
+	/* if string contains no info, return 1 */
+	if(strlen(*input) == 1){ // i.e. just \0
+		return 1;
+	}
+	/* if string begins with #, print string and return 1 */
+	if(**input == '#'){
+		printOut(*input, 0);
+		return 1;
+	}
+
+	return 0;
+}
 
 /********************************************************************
 ** Description: 
@@ -64,12 +90,34 @@ int main(int argc, char const *argv[])
 ********************************************************************/
 void getInput(char **retString){
 	/* allocate your string w/ room for \0 */
+	// if(retString == NULL)
 	*retString = malloc( sizeof(char) * (MAX_CMD_SIZE + 1) );
+	// clearString(*retString, MAX_CMD_SIZE+1);
 	/* print and accept input while the string is not a possible connection */
 	do {
-		fputs(": ", stdout);
-		fflush(stdout); // flush the print buffer
-		fgets(*retString, MAX_CMD_SIZE + 1, stdin); 
-	// } while (validateInput(*retString) != 0);
-	} while (0 != 0);
+		printOut(": ", 0);
+		fgets(*retString, MAX_CMD_SIZE + 1, stdin);
+	} while (validateInput(retString) != 0);
+	removeLineEnding(retString);
+}
+
+/*********************************************************************
+** Description: 
+** Print using fputs and flush each time
+*********************************************************************/
+void printOut(char * outString, int newln){
+	fputs(outString, stdout);
+	fflush(stdout); // flush the print buffer
+	if(newln){	
+		fputs("\n", stdout);
+		fflush(stdout);
+	}
+}
+
+/*********************************************************************
+** Description: 
+** Automates memset() because 'memset' isn't very descriptive
+*********************************************************************/
+void clearString(char * theString, int size) {
+	memset(theString, '\0', size);
 }
