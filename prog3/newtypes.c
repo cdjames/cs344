@@ -12,12 +12,25 @@
 #define ST_SIZE sizeof(struct Statuskeeper)
 #endif
 
-struct Statuskeeper * new_sk(unsigned int type, int sk_sig){
+struct Statuskeeper * new_SK(us_int type, int sk_sig){
 	struct Statuskeeper * st = (ST *) malloc(ST_SIZE);
 	st->type = type;
 	st->sk_sig = sk_sig;
 
 	return st;
+}
+
+struct Commandkeeper new_CK(char * cmd, struct argArray * args, int num_args){
+	struct Commandkeeper ck;
+	ck.bg = 0;
+	ck.bltin = 0;
+	ck.red_in = 0;
+	ck.red_out = 0;
+	ck.red_error = 0;
+	ck.num_args = num_args;
+	ck.cmd = cmd;
+	ck.args = args;
+	return ck;
 }
 
 void free_sk(struct Statuskeeper * sk){
