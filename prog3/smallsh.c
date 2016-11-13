@@ -25,6 +25,9 @@ struct Commandkeeper parseInString(char ** inputStr);
 /* Global constants */
 const int MAX_CMD_SIZE = 2048;
 const char * DELIM = " ";
+
+/* Global vars */
+char * USAGE = "Usage: command [arg1 arg2 ...] [< input_file] [> output_file] [&]";
 // const int MAX_NUM_ARGS = 512;
 
 void structTest(){
@@ -50,6 +53,14 @@ void structTest(){
 	}
 }
 
+void printAllCK(struct Commandkeeper ck) {
+	printf("bg=%d, bltin=%d, red_in=%d, red_out=%d, red_error=%d, num_args=%d\n", ck.bg, ck.bltin, ck.red_in, ck.red_out, ck.red_error, ck.num_args);
+}
+
+void usage(){
+	printOut(USAGE, 1);
+}
+
 int main(int argc, char const *argv[])
 {
 	/* variables */
@@ -68,6 +79,29 @@ int main(int argc, char const *argv[])
 		if(strcmp(input, exitSt) != 0){
 			/* not an exit command; process string */
 			theCK = parseInString(&input);
+
+			/* check for redirect errors and print usage */
+			if(theCK.red_error){
+				/* print usage and go to next loop iteration */
+				usage();
+				continue;
+			}
+			/* otherwise check for built in commands and run */
+			if(theCK.bltin){
+				if(strcmp(theCK.cmd, "cd") == 0){
+					/* run cd */
+					continue;
+				}
+				else if(strcmp(theCK.cmd, "status") == 0){
+					/* run status*/
+					continue;
+				} 
+				else if(strcmp(theCK.cmd, "exit") == 0){
+					/* run exit */
+					continue;
+				}
+			}
+			/* otherwise hand external commands */
 		} else {
 			theStatus = EXIT;
 			/* run any other exit routines here */
@@ -86,10 +120,7 @@ struct Commandkeeper parseInString(char ** inputStr){
 	// strcpy(tmp, *inputStr);
 	char * tmp = *inputStr;
 	us_int bg = 0,
-		bltin = 0,
-		red_in = 0,
-		red_out = 0,
-		num_args = 0;
+		bltin = 0;
 	char * cmd;
 	char * infile = NULL;
 	char * outfile = NULL;
@@ -105,6 +136,12 @@ struct Commandkeeper parseInString(char ** inputStr){
 	if(tmp[str_len-1] == '&'){
 		bg = 1;
 		tmp[str_len-1] = '\0';
+		str_len = strlen(tmp);
+		/* remove space at end of string if necessary */
+		if(tmp[str_len] == ' '){
+			tmp[str_len] = '\0';
+			str_len = strlen(tmp);
+		}
 	}
 
 	/* extract your command from the front of the string */
@@ -130,36 +167,27 @@ struct Commandkeeper parseInString(char ** inputStr){
 		// fflush(stdout);
 		/* is it < or >? If so, start your counter, which should always be 1 */
 		if(strcmp(subString, "<") == 0){
-			printf("%c\n", subString[0]);
-			printOut("input redirect", 1);
+			// printOut("input redirect", 1);
 			red_in_count += 1; // set to 
-			if(red_in_sat > 0 || (red_out_count > 0 && red_out_sat == 0) || red_in_count > 1)
-				red_error = 1;
 		} 
 		else if(strcmp(subString, ">") == 0){
-			printf("output redirect\n");
+			// printf("output redirect\n");
 			red_out_count += 1;
-			if(red_out_sat > 0 || (red_in_count > 0 && red_in_sat == 0) || red_out_count > 1)
-				red_error = 1;
 		} 
 		// /* not a redirection character */
 		else {
-			if(red_in_count){ // you've had a redirection operator, so no more args
-				if(red_in_sat == 0){ // you've got a filename
-					red_in_sat += 1;
-					infile = subString;
+			if(red_in_count == 1 || red_out_count == 1){ // you've had a redirection operator, so no more args
+				if(red_in_count){ 
+					if(red_in_sat == 0){ // you've got a filename
+						red_in_sat += 1;
+						infile = subString;
+					}
 				}
-				else { // you have arguments after a filename :(
-					red_error = 1;
-				}
-			}
-			else if(red_out_count){ // you've had a redirection operator, so no more args
-				if(red_out_sat == 0){ // you've got a filename
-					red_out_sat += 1;
-					outfile = subString;
-				}
-				else { // you have arguments after a filename :(
-					red_error = 1;
+				if(red_out_count){ // you've had a redirection operator, so no more args
+					if(red_out_sat == 0){ // you've got a filename
+						red_out_sat += 1;
+						outfile = subString;
+					}
 				}
 			}
 			else {	// you've got an argument
@@ -171,15 +199,24 @@ struct Commandkeeper parseInString(char ** inputStr){
 		subString = strtok(NULL, DELIM);
 	}
 	/* now all args, redirects figured; create initial Commandkeeper object */
-	CK = new_CK(cmd, args, i-1);
+	CK = new_CK(cmd, args, i);
 
+	/* check for redirect errors */
+	// printf("red_in_count=%d, red_in_sat=%d, red_out_count=%d, red_out_sat=%d\n", red_in_count, red_in_sat, red_out_count, red_out_sat);
+	/* no filenames */
+	if( (red_in_count > 0 && red_in_sat == 0) || (red_out_count > 0 && red_out_sat == 0))
+		red_error = 1;
+	/* too many operators */
+	else if (red_in_count > 1 || red_out_count > 1)
+		red_error = 1;
+	
 	/* check whether to mark redirects as true */
 	if(red_in_count == 1 && red_error == 0) {		
-		CK.red_in == 1;
+		CK.red_in = 1;
 		CK.infile = infile;
 	}
 	if(red_out_count == 1 && red_error == 0){
-		CK.red_out == 1;
+		CK.red_out = 1;
 		CK.outfile = outfile;
 	}
 	/* set the rest of the variables in the CK object */

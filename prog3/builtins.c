@@ -11,7 +11,7 @@
 ** more info in header file
 *********************************************************************/
 
-int mycd(char * dir, int numParams){
+int mycd(struct Commandkeeper * CK){
 	/* if numParams is greater than 1*/
 		// print usage and return 1
 	/* else you've got 0 or 1 params */

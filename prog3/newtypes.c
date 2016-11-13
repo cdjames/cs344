@@ -30,6 +30,8 @@ struct Commandkeeper new_CK(char * cmd, struct argArray * args, int num_args){
 	ck.num_args = num_args;
 	ck.cmd = cmd;
 	ck.args = args;
+	ck.infile = NULL;
+	ck.outfile = NULL;
 	return ck;
 }
 

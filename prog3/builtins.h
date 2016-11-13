@@ -16,7 +16,7 @@ a path and one which is an int that contains the num of params passed on
 the command line. If the path begins with '/', it is an absolute path. 
 Otherwise it is relative.
 *********************************************************************/
-int mycd(char * dir, int numParams);
+int mycd(struct Commandkeeper * CK);
 
 #endif
 
