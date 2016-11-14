@@ -14,6 +14,7 @@
 #include <string.h>  	// for memset
 #include <time.h>
 #include "newtypes.h"
+#include "builtins.h"
 #include "dynArray.h"
 
 void getInput(char **retString);
@@ -90,6 +91,7 @@ int main(int argc, char const *argv[])
 			if(theCK.bltin){
 				if(strcmp(theCK.cmd, "cd") == 0){
 					/* run cd */
+					mycd(&theCK);
 					continue;
 				}
 				else if(strcmp(theCK.cmd, "status") == 0){
@@ -294,14 +296,14 @@ void getInput(char **retString){
 ** Description: 
 ** Print using fputs and flush each time
 *********************************************************************/
-void printOut(char * outString, int newln){
-	fputs(outString, stdout);
-	fflush(stdout); // flush the print buffer
-	if(newln){	
-		fputs("\n", stdout);
-		fflush(stdout);
-	}
-}
+// void printOut(char * outString, int newln){
+// 	fputs(outString, stdout);
+// 	fflush(stdout); // flush the print buffer
+// 	if(newln){	
+// 		fputs("\n", stdout);
+// 		fflush(stdout);
+// 	}
+// }
 
 // ********************************************************************
 // ** Description: 
