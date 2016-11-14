@@ -6,7 +6,10 @@
 
 #ifndef BI_H
 #define BI_H
-
+#include "newTypes.h"
+#include <stdio.h>		// printing, etc
+#include <unistd.h>	// chdir
+#include <sys/stat.h> 	// for stat()
 /*********************************************************************
 ** Description: 
 ** mycd changes directories; it supports relative and absolute paths
