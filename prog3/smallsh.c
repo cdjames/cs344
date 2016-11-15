@@ -70,6 +70,7 @@ int main(int argc, char const *argv[])
 	struct Commandkeeper theCK;	
 	char * input; // allocated in getInput
 	char exitSt[] = "exit";
+	// int r; 
 
 	/* main logic */
 	while(theStatus != EXIT){
@@ -89,13 +90,15 @@ int main(int argc, char const *argv[])
 			}
 			/* otherwise check for built in commands and run */
 			if(theCK.bltin){
+				theSK->type = 1;
 				if(strcmp(theCK.cmd, "cd") == 0){
 					/* run cd */
-					mycd(&theCK);
+					theSK->sk_sig = mycd(&theCK);
 					continue;
 				}
 				else if(strcmp(theCK.cmd, "status") == 0){
 					/* run status*/
+					theSK->sk_sig = mystatus(&theCK, theSK);
 					continue;
 				} 
 				else if(strcmp(theCK.cmd, "exit") == 0){
