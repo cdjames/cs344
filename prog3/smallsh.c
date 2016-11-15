@@ -67,17 +67,7 @@ void usage(){
 
 int main(int argc, char const *argv[])
 {
-	// setUpSignals();
-	struct sigaction myact;
-	void (*fp) = caughtSig; // function pointer
-	// myact.sa_handler = SIG_IGN; // ignore a signal
-	myact.sa_handler = caughtSig; // ignore a signal
-	// sigset_t my_sig_set;
-	// sigfillset(&my_sig_set); // fill w/ all signals
-	sigfillset(&(myact.sa_mask)); // fill w/ all signals
-	myact.sa_flags = 0;
-
-	sigaction(SIGINT, &myact, NULL);
+	setUpSignals();
 
 	/* variables */
 	struct Statuskeeper * theSK = new_SK(0, -1);
@@ -173,90 +163,90 @@ struct Commandkeeper parseInString(char ** inputStr){
 	}
 
 	/* extract your command from the front of the string */
-	// char * subString;
-	// subString = strtok(tmp,DELIM);
-	// cmd = subString;
+	char * subString;
+	subString = strtok(tmp,DELIM);
+	cmd = subString;
 	
-	// // CK = new_CK(NULL, NULL, 0);
-	// // if(cmd == NULL){
-	// // 	CK.io_error = 1;
-	// // 	return CK; // something went wrong
-	// // }
-
-	// if(strcmp(cmd, "cd") == 0 || strcmp(cmd, "status") == 0 || strcmp(cmd, "exit") == 0){
-	// 	bltin = 1;
+	// CK = new_CK(NULL, NULL, 0);
+	// if(cmd == NULL){
+	// 	CK.io_error = 1;
+	// 	return CK; // something went wrong
 	// }
-	
-	// // printf("%s\n", cmd);
 
-	// /* parse remaining tokens and determine if you have a > or <, argument, or filename */
-	// int i = 0;
-	// subString = strtok(NULL, DELIM);
-	// while (subString != NULL)
-	// {
-	// 	// printf("%s\n", subString);
-	// 	/* get next token */
+	if(strcmp(cmd, "cd") == 0 || strcmp(cmd, "status") == 0 || strcmp(cmd, "exit") == 0){
+		bltin = 1;
+	}
+	
+	// printf("%s\n", cmd);
+
+	/* parse remaining tokens and determine if you have a > or <, argument, or filename */
+	int i = 0;
+	subString = strtok(NULL, DELIM);
+	while (subString != NULL)
+	{
+		// printf("%s\n", subString);
+		/* get next token */
 		
-	// 	// printf("word=%s\n", subString);
-	// 	// fflush(stdout);
-	// 	/* is it < or >? If so, start your counter, which should always be 1 */
-	// 	if(strcmp(subString, "<") == 0){
-	// 		// printOut("input redirect", 1);
-	// 		red_in_count += 1; // set to 
-	// 	} 
-	// 	else if(strcmp(subString, ">") == 0){
-	// 		// printf("output redirect\n");
-	// 		red_out_count += 1;
-	// 	} 
-	// 	// /* not a redirection character */
-	// 	else {
-	// 		if(red_in_count == 1 || red_out_count == 1){ // you've had a redirection operator, so no more args
-	// 			if(red_in_count){ 
-	// 				if(red_in_sat == 0){ // you've got a filename
-	// 					red_in_sat += 1;
-	// 					infile = subString;
-	// 				}
-	// 			}
-	// 			if(red_out_count){ // you've had a redirection operator, so no more args
-	// 				if(red_out_sat == 0){ // you've got a filename
-	// 					red_out_sat += 1;
-	// 					outfile = subString;
-	// 				}
-	// 			}
-	// 		}
-	// 		else {	// you've got an argument
-	// 			args[i].arg = subString;
-	// 			i++;
-	// 		}
-	// 	}
-	// 	/* get next token */
-	// 	subString = strtok(NULL, DELIM);
-	// }
-	// /* now all args, redirects figured; create initial Commandkeeper object */
-	// CK = new_CK(cmd, args, i);
+		// printf("word=%s\n", subString);
+		// fflush(stdout);
+		/* is it < or >? If so, start your counter, which should always be 1 */
+		if(strcmp(subString, "<") == 0){
+			// printOut("input redirect", 1);
+			red_in_count += 1; // set to 
+		} 
+		else if(strcmp(subString, ">") == 0){
+			// printf("output redirect\n");
+			red_out_count += 1;
+		} 
+		// /* not a redirection character */
+		else {
+			if(red_in_count == 1 || red_out_count == 1){ // you've had a redirection operator, so no more args
+				if(red_in_count){ 
+					if(red_in_sat == 0){ // you've got a filename
+						red_in_sat += 1;
+						infile = subString;
+					}
+				}
+				if(red_out_count){ // you've had a redirection operator, so no more args
+					if(red_out_sat == 0){ // you've got a filename
+						red_out_sat += 1;
+						outfile = subString;
+					}
+				}
+			}
+			else {	// you've got an argument
+				args[i].arg = subString;
+				i++;
+			}
+		}
+		/* get next token */
+		subString = strtok(NULL, DELIM);
+	}
+	/* now all args, redirects figured; create initial Commandkeeper object */
+	CK = new_CK(cmd, args, i);
 
-	// /* check for redirect errors */
-	// // printf("red_in_count=%d, red_in_sat=%d, red_out_count=%d, red_out_sat=%d\n", red_in_count, red_in_sat, red_out_count, red_out_sat);
-	// /* no filenames */
-	// if( (red_in_count > 0 && red_in_sat == 0) || (red_out_count > 0 && red_out_sat == 0))
-	// 	red_error = 1;
-	// /* too many operators */
-	// else if (red_in_count > 1 || red_out_count > 1)
-	// 	red_error = 1;
+	/* check for redirect errors */
+	// printf("red_in_count=%d, red_in_sat=%d, red_out_count=%d, red_out_sat=%d\n", red_in_count, red_in_sat, red_out_count, red_out_sat);
+	/* no filenames */
+	if( (red_in_count > 0 && red_in_sat == 0) || (red_out_count > 0 && red_out_sat == 0))
+		red_error = 1;
+	/* too many operators */
+	else if (red_in_count > 1 || red_out_count > 1)
+		red_error = 1;
 	
-	// /* check whether to mark redirects as true */
-	// if(red_in_count == 1 && red_error == 0) {		
-	// 	CK.red_in = 1;
-	// 	CK.infile = infile;
-	// }
-	// if(red_out_count == 1 && red_error == 0){
-	// 	CK.red_out = 1;
-	// 	CK.outfile = outfile;
-	// }
-	// /* set the rest of the variables in the CK object */
-	// CK.red_error = red_error;
-	// CK.bg = bg;
-	// CK.bltin = bltin;
+	/* check whether to mark redirects as true */
+	if(red_in_count == 1 && red_error == 0) {		
+		CK.red_in = 1;
+		CK.infile = infile;
+	}
+	if(red_out_count == 1 && red_error == 0){
+		CK.red_out = 1;
+		CK.outfile = outfile;
+	}
+	/* set the rest of the variables in the CK object */
+	CK.red_error = red_error;
+	CK.bg = bg;
+	CK.bltin = bltin;
 
 	return CK;
 }
@@ -291,6 +281,9 @@ int validateInput(char **input) {
 
 	/* if string contains no info, return 1 */
 	if(strlen(*input) <= 1){ // i.e. null or just \0
+		/* check for 0 length string or ^C so no newline */
+		if(strlen(*input) < 1 || (strlen(*input) == 1 && *input[0] != '\n'))
+			printOut("", 1); // print a new line
 		return 1;
 	}
 	/* if string begins with #, print string and return 1 */
@@ -319,7 +312,7 @@ void getInput(char **retString){
 		printOut(": ", 0);
 		/* get a string of max size 2048 to leave room for \0 */
 		fgets(*retString, MAX_CMD_SIZE, stdin);
-		printf("%li\n", strlen(*retString) );
+		// printf("%li\n", strlen(*retString) );
 	} while (validateInput(retString) != 0);
 	/* get rid of a \n if it exists at end of string */
 	removeLineEnding(retString);
@@ -327,9 +320,9 @@ void getInput(char **retString){
 
 void caughtSig(){
 	// printOut("caught signal ", 1);
-	// printf("%s\n", "caught signal");
-	int i;
-	i = 0;
+	printf("%s\n", "caught signal");
+	// int i;
+	// i = 0;
 }
 
 void setUpSignals(){
