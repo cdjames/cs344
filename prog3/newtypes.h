@@ -30,6 +30,7 @@ struct Commandkeeper
 		red_in,		// 0/1 -- redirect in?
 		red_out,		// 0/1 -- redirect out?
 		red_error,		
+		// io_error,
 		num_args;	// >= 0 -- # of arguments
 	
 	struct argArray * args; // any arguments

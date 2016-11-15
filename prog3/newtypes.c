@@ -27,6 +27,7 @@ struct Commandkeeper new_CK(char * cmd, struct argArray * args, int num_args){
 	ck.red_in = 0;
 	ck.red_out = 0;
 	ck.red_error = 0;
+	// ck.io_error = 0;
 	ck.num_args = num_args;
 	ck.cmd = cmd;
 	ck.args = args;
