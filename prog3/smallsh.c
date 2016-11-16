@@ -25,6 +25,7 @@ void removeLineEnding(char ** input);
 void printOut(char * outString, int newln);
 struct Commandkeeper parseInString(char ** inputStr);
 void caughtSig();
+void childSig();
 void setUpSignals();
 int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK);
 int checkDirInPath(char * fname, struct stat * checkfor);
@@ -70,7 +71,10 @@ void usage(){
 
 int main(int argc, char const *argv[])
 {
-	setUpSignals();
+	// setUpSignals();
+	struct sigaction ignore_action;
+	ignore_action.sa_handler = SIG_IGN;
+	sigaction(SIGINT, &ignore_action, NULL);
 
 	pid_t pid = -1;
 
@@ -84,7 +88,7 @@ int main(int argc, char const *argv[])
 
 	/* main logic */
 	while(theStatus != EXIT && pid != 0){
-		printf("currently pid is %d\n", pid);
+		// printf("currently pid is %d\n", pid);
 		getInput(&input); // validates input and puts in input variable
 		// printOut(input, 1); // print with a line ending; TESTING
 
@@ -103,15 +107,19 @@ int main(int argc, char const *argv[])
 			// 	continue;
 			/* otherwise check for built in commands and run */
 			if(theCK.bltin){
-				theSK->type = 1;
+				// theSK->type = 1;
 				if(strcmp(theCK.cmd, "cd") == 0){
 					/* run cd */
+					theSK->type = 1;
 					theSK->sk_sig = mycd(&theCK);
 					continue;
 				}
 				else if(strcmp(theCK.cmd, "status") == 0){
 					/* run status*/
+					// printf("signal was %d\n", theSK->sk_sig);
+					// printf("type was %d\n", theSK->type);
 					theSK->sk_sig = mystatus(&theCK, theSK);
+					theSK->type = 1;
 					continue;
 				} 
 				else if(strcmp(theCK.cmd, exitSt) == 0){
@@ -124,7 +132,8 @@ int main(int argc, char const *argv[])
 			else{
 				/* if no bg symbol, run in foreground */
 				pid = runInFore(&theCK, theSK);
-
+				// printf("signal was %d\n", theSK->sk_sig);
+				// printf("type was %d\n", theSK->type);
 				/* otherwise, run in background */
 
 			}
@@ -138,13 +147,18 @@ int main(int argc, char const *argv[])
 		free_sk(theSK);
 		free(input);
 	}
-	printf("child exiting? pid=%d\n", pid);
+	// printf("child exiting? pid=%d\n", pid);
 	// structTest();
 	return 0;
 }
 
 int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 	/* test for command and get out of there if it isn't available */
+
+
+	struct sigaction child_action;
+	child_action.sa_handler = SIG_DFL;
+
 	char * cmd = theCK->cmd;
 	// struct stat checkfor;
 	// int exists = 0;
@@ -164,30 +178,34 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 		arguments[theCK->num_args+1] = NULL;
 		/* in child, set up signal catching & exec */
 		if(pid == 0){
-			printf("%s\n", "I'm the child");
+			sigaction(SIGINT, &child_action, NULL);
 			execvp(cmd, arguments);
 			perror(cmd);
-			theSK->type = 1;
-			theSK->sk_sig = 1;
-			// return 1;
+			// return (1);
 		}
 
 		/* in parent, wait for pid */
 		else if(pid > 0){
-			printf("%s\n", "I'm the parent");
+			// printf("%s\n", "I'm the parent");
 			int status;
+			
 			pid_t exitpid = waitpid(pid, &status, 0);
-			// if (WIFEXITED(status))
-			// {
-			// 	printf("The process exited normally\n"); 
-			// 	int exitstatus = WEXITSTATUS(status); 
-			// 	printf("exit status was %d\n", exitstatus);
-			// } 
-			// else
-				// printf("Child terminated by a signal\n");
-			// printf("%s%d\n", "child exited with ", status);
-			theSK->type = 1;
-			theSK->sk_sig = status;
+			if (WIFEXITED(status))
+			{
+				// printf("The process exited normally\n"); 
+				int exitstatus = WEXITSTATUS(status); 
+				// printf("exit status was %d\n", exitstatus);
+				theSK->type = 1;
+				theSK->sk_sig = exitstatus;
+			} 
+			else{
+				// printOut("Child terminated by a signal ", 1);
+				theSK->type = 2;
+				printStatusMsg(status, "terminated by signal ");
+				theSK->sk_sig = status;
+			}			
+			// theSK->sk_sig = status;
+			// printf("status was %d, exitpid was %d\n", status, exitpid);
 		}
 		free(arguments);
 		return pid;
@@ -436,18 +454,30 @@ void caughtSig(){
 	// i = 0;
 }
 
-void setUpSignals(){
-	struct sigaction myact;
-	// void (*fp) (void) = caughtSig; // function pointer
-	// myact.sa_handler = SIG_IGN; // ignore a signal
-	myact.sa_handler = caughtSig; // ignore a signal
-	// sigset_t my_sig_set;
-	// sigfillset(&my_sig_set); // fill w/ all signals
-	sigfillset(&(myact.sa_mask)); // fill w/ all signals
-	myact.sa_flags = 0;
-
-	sigaction(SIGINT, &myact, NULL);
+void childSig(){
+	// printOut("caught signal ", 1);
+	printf("%s\n", "signal: child exited");
+	// int i;
+	// i = 0;
 }
+
+// void setUpSignals(){
+// 	struct sigaction myact;
+// 	struct sigaction childact;
+// 	// void (*fp) (void) = caughtSig; // function pointer
+// 	// myact.sa_handler = SIG_IGN; // ignore a signal
+// 	myact.sa_handler = caughtSig; // ignore a signal
+// 	childact.sa_handler = childSig; // ignore a signal
+// 	// sigset_t my_sig_set;
+// 	// sigfillset(&my_sig_set); // fill w/ all signals
+// 	sigfillset(&(myact.sa_mask)); // fill w/ all signals
+// 	sigfillset(&(childact.sa_mask)); // fill w/ all signals
+// 	myact.sa_flags = 0;
+// 	childact.sa_flags = 0;
+
+// 	sigaction(SIGINT, &myact, NULL);
+// 	sigaction(SIGCHLD, &childact, NULL);
+// }
 /*********************************************************************
 ** Description: 
 ** Print using fputs and flush each time

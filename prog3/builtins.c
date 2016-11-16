@@ -16,6 +16,8 @@ int mystatus(struct Commandkeeper * CK, struct Statuskeeper * SK){
 	}
 	/* check statuskeeper and perform necessary functions */
 	else {
+		// printf("signal was %d\n", SK->sk_sig);
+		// printf("type was %d\n", SK->type);
 		/* if empty SK.type (0), no completed jobs */
 		if(SK->type == 0)
 		{
