@@ -14,6 +14,7 @@
 #include <string.h>  	// for memset
 #include <time.h>
 #include <signal.h> 	//for sigset_t
+#include <sys/wait.h> 	// for wait/waitpid
 #include "newtypes.h"
 #include "builtins.h"
 #include "dynArray.h"
@@ -25,6 +26,8 @@ void printOut(char * outString, int newln);
 struct Commandkeeper parseInString(char ** inputStr);
 void caughtSig();
 void setUpSignals();
+int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK);
+int checkDirInPath(char * fname, struct stat * checkfor);
 
 /* Global constants */
 const int MAX_CMD_SIZE = 2048;
@@ -69,6 +72,8 @@ int main(int argc, char const *argv[])
 {
 	setUpSignals();
 
+	pid_t pid = -1;
+
 	/* variables */
 	struct Statuskeeper * theSK = new_SK(0, -1);
 	enum Status theStatus = CONTINUE;
@@ -78,7 +83,8 @@ int main(int argc, char const *argv[])
 	// int r; 
 
 	/* main logic */
-	while(theStatus != EXIT){
+	while(theStatus != EXIT && pid != 0){
+		printf("currently pid is %d\n", pid);
 		getInput(&input); // validates input and puts in input variable
 		// printOut(input, 1); // print with a line ending; TESTING
 
@@ -117,8 +123,10 @@ int main(int argc, char const *argv[])
 			/* otherwise hand external commands */
 			else{
 				/* if no bg symbol, run in foreground */
-				// runInFore(&theCK)
+				pid = runInFore(&theCK, theSK);
+
 				/* otherwise, run in background */
+
 			}
 		} else {
 			theStatus = EXIT;
@@ -126,12 +134,115 @@ int main(int argc, char const *argv[])
 		}
 
 	}
-	free_sk(theSK);
-	free(input);
-
+	if(pid != 0){
+		free_sk(theSK);
+		free(input);
+	}
+	printf("child exiting? pid=%d\n", pid);
 	// structTest();
 	return 0;
 }
+
+int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
+	/* test for command and get out of there if it isn't available */
+	char * cmd = theCK->cmd;
+	// struct stat checkfor;
+	// int exists = 0;
+	// exists = checkDirInPath(theCK->cmd, &checkfor);
+
+	// if(exists){
+		/* fork a process */
+		int pid = fork();
+		char ** arguments = malloc( sizeof(char *) * theCK->num_args+2);
+		arguments[0] = cmd;
+
+		int i;
+		for (i = 0; i < theCK->num_args; i++)
+		{
+			arguments[i+1] = theCK->args[i].arg;
+		}
+		arguments[theCK->num_args+1] = NULL;
+		/* in child, set up signal catching & exec */
+		if(pid == 0){
+			printf("%s\n", "I'm the child");
+			execvp(cmd, arguments);
+			perror(cmd);
+			theSK->type = 1;
+			theSK->sk_sig = 1;
+			// return 1;
+		}
+
+		/* in parent, wait for pid */
+		else if(pid > 0){
+			printf("%s\n", "I'm the parent");
+			int status;
+			pid_t exitpid = waitpid(pid, &status, 0);
+			// if (WIFEXITED(status))
+			// {
+			// 	printf("The process exited normally\n"); 
+			// 	int exitstatus = WEXITSTATUS(status); 
+			// 	printf("exit status was %d\n", exitstatus);
+			// } 
+			// else
+				// printf("Child terminated by a signal\n");
+			// printf("%s%d\n", "child exited with ", status);
+			theSK->type = 1;
+			theSK->sk_sig = status;
+		}
+		free(arguments);
+		return pid;
+	// }
+	// else 
+	// {
+	// 	printOut(cmd, 0);
+	// 	printOut(": No such file or directory", 1);
+	// 	return -1;
+	// }
+}
+
+/*********************************************************************
+** Description: 
+** Check that a directory exists and change to that directory
+*********************************************************************/
+int checkDirInPath(char * fname, struct stat * checkfor) {
+	char * path = getenv("PATH");
+	printOut(path, 1);
+	printOut(fname, 1);
+	char * subString = malloc( sizeof(char) * 200);
+	subString = strtok(path,":");
+	char ss[100];
+	char * int_path;
+	char * full_path;
+
+	/* print out substring and get next one, if none strtok returns NULL */
+	while (subString != NULL){
+		strcpy(ss, subString);
+		int_path = strcat(ss, "/");
+		full_path = strcat(int_path, fname);
+		printOut(full_path, 1);
+		if (stat(full_path, checkfor) != -1) {
+		    printf("full_path = %s\n", full_path);
+			return 1;
+		}
+		subString = strtok(NULL, ":");
+		// printOut(subString, 1);
+		printf("substring= %li %s\n", sizeof(subString), subString);
+	}
+	return 0;
+	// char cwd[512];
+	// char * fullerror;
+	// if (stat(fullarg, checkfor) != -1) {
+	//     chdir(fullarg);
+	// 	getcwd(cwd, 512);
+	// 	printOut(cwd, 1);
+	// 	return 0;
+	// }
+	// else {
+	// 	fullerror = strcat(fullarg, nsd);
+	// 	printOut(fullerror, 1);
+	// 	return 1;
+	// }
+} 
 
 struct Commandkeeper parseInString(char ** inputStr){
 	// char tmp[MAX_CMD_SIZE+1];
