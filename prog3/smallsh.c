@@ -131,7 +131,8 @@ int main(int argc, char const *argv[])
 			/* otherwise hand external commands */
 			else{
 				/* if no bg symbol, run in foreground */
-				pid = runInFore(&theCK, theSK);
+				if(!theCK.bg)
+					pid = runInFore(&theCK, theSK);
 				// printf("signal was %d\n", theSK->sk_sig);
 				// printf("type was %d\n", theSK->type);
 				/* otherwise, run in background */
@@ -155,33 +156,52 @@ int main(int argc, char const *argv[])
 int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 	/* test for command and get out of there if it isn't available */
 
-
+	/* set up child to do default when receiving SIGINT */
 	struct sigaction child_action;
 	child_action.sa_handler = SIG_DFL;
 
 	char * cmd = theCK->cmd;
-	// struct stat checkfor;
-	// int exists = 0;
-	// exists = checkDirInPath(theCK->cmd, &checkfor);
-
+	int f_error = 0;
 	// if(exists){
 		/* fork a process */
 		int pid = fork();
 		char ** arguments = malloc( sizeof(char *) * theCK->num_args+2);
 		arguments[0] = cmd;
 
+		/* make an array of arguments */
 		int i;
 		for (i = 0; i < theCK->num_args; i++)
 		{
 			arguments[i+1] = theCK->args[i].arg;
 		}
 		arguments[theCK->num_args+1] = NULL;
+
 		/* in child, set up signal catching & exec */
 		if(pid == 0){
+			int fd, fd2;
+			/* catch */
 			sigaction(SIGINT, &child_action, NULL);
-			execvp(cmd, arguments);
-			perror(cmd);
-			// return (1);
+
+			/* set up redirects */
+			/* if redin, do dup2 w/ stdin */
+			if(theCK->red_in){
+				f_error = redirectIn(theCK);
+			}
+			/* if redout, do dup2 w/ stdut */
+			if(theCK->red_out){
+				f_error = redirectOut(theCK);
+			}
+
+			if(!f_error){
+				/* execute the command */
+				if(theCK->red_in)
+					execlp(cmd, cmd, NULL); // w/ file
+				else
+					execvp(cmd, arguments); // w/ arguments
+				
+				/* print out any error if exec fails */
+				perror(cmd);
+			}
 		}
 
 		/* in parent, wait for pid */
@@ -190,6 +210,7 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 			int status;
 			
 			pid_t exitpid = waitpid(pid, &status, 0);
+			/* figure out exit status and fill Statuskeeper */
 			if (WIFEXITED(status))
 			{
 				// printf("The process exited normally\n"); 
@@ -198,13 +219,11 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 				theSK->type = 1;
 				theSK->sk_sig = exitstatus;
 			} 
-			else{
-				// printOut("Child terminated by a signal ", 1);
+			else{ // terminated by a signal
 				theSK->type = 2;
 				printStatusMsg(status, "terminated by signal ");
 				theSK->sk_sig = status;
 			}			
-			// theSK->sk_sig = status;
 			// printf("status was %d, exitpid was %d\n", status, exitpid);
 		}
 		free(arguments);
@@ -218,6 +237,49 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 	// }
 }
 
+int redirectOut(struct Commandkeeper * theCK){
+	int fd, fd2, f_error = 0;
+	fd = open(theCK->outfile, O_WRONLY|O_CREAT|O_TRUNC, 0644); 
+
+	if (fd == -1)
+	{
+	   	perror(theCK->cmd);
+		f_error = 1;
+		// exit(1);
+	}
+	else {
+		fd2 = dup2(fd, 1); 
+		if (fd2 == -1)
+		{
+		   	perror(theCK->cmd);
+		   	f_error = 1;
+			// exit(2); 
+		}
+	}
+	return f_error;
+}
+
+int redirectIn(struct Commandkeeper * theCK){
+	int fd, fd2, f_error = 0;
+	fd = open(theCK->infile, O_RDONLY); 
+
+	if (fd == -1)
+	{
+	   	perror(theCK->cmd);
+		f_error = 1;
+		// exit(1);
+	}
+	else {
+		fd2 = dup2(fd, 0); 
+		if (fd2 == -1)
+		{
+		   	perror(theCK->cmd);
+		   	f_error = 1;
+			// exit(2); 
+		}
+	}
+	return f_error;
+}
 /*********************************************************************
 ** Description: 
 ** Check that a directory exists and change to that directory
@@ -332,15 +394,15 @@ struct Commandkeeper parseInString(char ** inputStr){
 			if(red_in_count == 1 || red_out_count == 1){ // you've had a redirection operator, so no more args
 				if(red_in_count){ 
 					if(red_in_sat == 0){ // you've got a filename
-						red_in_sat += 1;
 						infile = subString;
 					}
+					red_in_sat += 1;
 				}
 				if(red_out_count){ // you've had a redirection operator, so no more args
 					if(red_out_sat == 0){ // you've got a filename
-						red_out_sat += 1;
 						outfile = subString;
 					}
+					red_out_sat += 1;
 				}
 			}
 			else {	// you've got an argument
@@ -360,7 +422,7 @@ struct Commandkeeper parseInString(char ** inputStr){
 	if( (red_in_count > 0 && red_in_sat == 0) || (red_out_count > 0 && red_out_sat == 0))
 		red_error = 1;
 	/* too many operators */
-	else if (red_in_count > 1 || red_out_count > 1)
+	else if ( (red_in_count > 1 || red_out_count > 1) || (red_in_sat > 1 || red_out_sat > 1) )
 		red_error = 1;
 	
 	/* check whether to mark redirects as true */
