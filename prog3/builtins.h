@@ -7,7 +7,7 @@
 #ifndef BI_H
 #define BI_H
 
-#include "newTypes.h"
+#include "newtypes.h"
 #include <stdio.h>		// printing, etc
 #include <unistd.h>		// chdir
 #include <sys/stat.h> 	// for stat()
