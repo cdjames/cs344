@@ -1,7 +1,8 @@
 /*********************************************************************
 ** Author: Collin James
 ** Date: 11/9/16
-** Description: Custom types used in smallsh; implementation
+** Description: Custom types used in smallsh; implementation (see header)
+** for more detail
 *********************************************************************/
 
 #include "newtypes.h"
@@ -36,7 +37,6 @@ struct Commandkeeper new_CK(char * cmd, struct argArray * args, int num_args){
 	ck.red_out = 0;
 	ck.red_error = 0;
 	ck.no_cmd=0;
-	// ck.io_error = 0;
 	ck.num_args = num_args;
 	ck.cmd = cmd;
 	ck.args = args;

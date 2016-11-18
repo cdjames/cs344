@@ -1,7 +1,8 @@
 /*********************************************************************
 ** Author: Collin James
 ** Date: 11/2/16
-** Description: 
+** Description: Logic for mycd, myexit, and mystatus functions. See
+** header for more information
 *********************************************************************/
 #include "builtins.h"
 
@@ -16,8 +17,6 @@ int mystatus(struct Commandkeeper * CK, struct Statuskeeper * SK){
 	}
 	/* check statuskeeper and perform necessary functions */
 	else {
-		// printf("signal was %d\n", SK->sk_sig);
-		// printf("type was %d\n", SK->type);
 		/* if empty SK.type (0), no completed jobs */
 		if(SK->type == 0)
 		{
@@ -37,12 +36,6 @@ int mystatus(struct Commandkeeper * CK, struct Statuskeeper * SK){
 	return 0;
 }
 
-/*********************************************************************
-** Description: 
-** mycd changes directories; it supports relative and absolute paths
-
-** more info in header file
-*********************************************************************/
 int mycd(struct Commandkeeper * CK){
 	// char* path;
 	char* home;
@@ -100,38 +93,16 @@ int mycd(struct Commandkeeper * CK){
 	return 0; // successful ending
 }
 
-int myexit(struct Commandkeeper * CK, struct Statuskeeper * SK){
+int myexit(struct Commandkeeper * CK){
 	/* check arguments */
 	if(CK->num_args > 0){
 		// print usage and return 1
 		printOut("exit: too many arguments", 1);
 		return 1;
 	}
-	/* check statuskeeper and perform necessary functions */
-	// else {
-	// 	/* if empty SK.type (0), no completed jobs */
-	// 	if(SK->type == 0)
-	// 	{
-	// 		printOut("no completed jobs", 1);
-	// 	}
-	// 	/* if 1, "exit value _" */
-	// 	else if(SK->type == 1)
-	// 	{
-	// 		printStatusMsg(SK->sk_sig, "exit value ");
-	// 	}
-	// 	/* if 2, "terminated by signal __" */		
-	// 	else
-	// 	{
-	// 		printStatusMsg(SK->sk_sig, "terminated by signal ");
-	// 	}
-	// }
 	return 0;
 }
 
-/*********************************************************************
-** Description: 
-** Print using fputs and flush each time
-*********************************************************************/
 void printOut(char * outString, int newln){
 	fputs(outString, stdout);
 	fflush(stdout); // flush the print buffer
@@ -141,10 +112,7 @@ void printOut(char * outString, int newln){
 	}
 }
 
-/*********************************************************************
-** Description: 
-** Check that a directory exists and change to that directory
-*********************************************************************/
+
 int checkAndChangeDir(char * fullarg, struct stat * checkfor) {
 	char cwd[512];
 	char * fullerror;
@@ -164,7 +132,6 @@ int checkAndChangeDir(char * fullarg, struct stat * checkfor) {
 
 void printStatusMsg(int sk_sig, char * msg){
 	int buf_s = 30;
-	// char * fullmessage;
 	char sig[buf_s];
 	int n;
 

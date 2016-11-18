@@ -1,79 +1,20 @@
 /*********************************************************************
 ** Author: Collin James
 ** Date: 11/2/16
-** Description: Logic for smallsh program
+** Description: Logic for smallsh program; See
+** header for more information about functions
 *********************************************************************/
 
 /* includes */
-#include <fcntl.h>		// for file manipulation
-#include <stdio.h>		// printing, etc
-#include <stdlib.h>		// mkdir, etc.
-#include <unistd.h> 	// for process id
-#include <sys/types.h> 	// for struct stat
-#include <sys/stat.h> 	// for stat()
-#include <string.h>  	// for memset
-#include <time.h>
-#include <signal.h> 	//for sigset_t
-#include <sys/wait.h> 	// for wait/waitpid
-#include "newtypes.h"
-#include "builtins.h"
-#include "cirListDeque.h"
-
-void getInput(char **retString);
-int validateInput(char **input);
-void clearString(char * theString, int size);
-void removeLineEnding(char ** input);
-void printOut(char * outString, int newln);
-struct Commandkeeper parseInString(char ** inputStr);
-void caughtSig();
-void childSig();
-void setUpSignals();
-int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK);
-struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * theSK);
-int redirectIn(struct Commandkeeper * theCK, int bg);
-int redirectOut(struct Commandkeeper * theCK, int bg);
-int checkDirInPath(char * fname);
-void printStatusMsgNL(int sk_sig, char * msg, int nl);
-void killzombies();
-void usage();
-void queueChecker(struct cirListDeque * Pid_queue, struct Pidkeeper PK, int killp);
-void printWaitPidStatus(pid_t bgpid, int bgstatus, struct Pidkeeper PK);
+#include "smallsh.h"
 
 /* Global constants */
 const int MAX_CMD_SIZE = 2048;
+const int MAX_NUM_ARGS = 512;
 const char * DELIM = " ";
 
 /* Global vars */
 char * USAGE = "Usage: command [arg1 arg2 ...] [< input_file] [> output_file] [&]";
-// const int MAX_NUM_ARGS = 512;
-
-// void structTest(){
-// 	char * str = "hello";
-// 	int num_args = 3;
-// 	struct argArray args[num_args];
-// 	// args = malloc( sizeof(struct argArray) * 3 );
-// 	int i;
-// 	for (i = 0; i < 3; i++)
-// 	{
-// 		args[i].arg = str;
-// 		printf("%s\n", args[i].arg);
-// 	}
-// 	// args -= (sizeof(struct argArray) * 3);
-// 	// printf("%s\n", args[1].arg);
-// 	struct Commandkeeper theCK = new_CK(str, args, num_args);
-
-// 	for (i = 0; i < 3; i++)
-// 	{
-// 		// strcpy(args[i].arg, str);
-// 		printf("%s\n", theCK.args[i].arg);
-// 		// args += (sizeof(struct argArray));
-// 	}
-// }
-
-void printAllCK(struct Commandkeeper ck) {
-	printf("bg=%d, bltin=%d, red_in=%d, red_out=%d, red_error=%d, num_args=%d\n", ck.bg, ck.bltin, ck.red_in, ck.red_out, ck.red_error, ck.num_args);
-	printOut(ck.cmd, 1);
-}
 
 int main(int argc, char const *argv[])
 {
@@ -83,7 +24,6 @@ int main(int argc, char const *argv[])
 	/* set up array */
 	struct cirListDeque Pid_queue;
 	initCirListDeque(&Pid_queue);
-	// addBackCirListDeque(&Pid_queue, PK);
 
 	// setUpSignals();
 	struct sigaction ignore_action;
@@ -94,14 +34,8 @@ int main(int argc, char const *argv[])
 	sigaction(SIGQUIT, &ignore_action, NULL);
 	sigaction(SIGABRT, &ignore_action, NULL);
 
-	// struct sigaction child_action;
-	// child_action.sa_handler = childSig;
-	// sigaction(SIGCHLD, &child_action, NULL);
-
+	/* pid related vars */
 	pid_t pid = -1;
-	pid_t bgpid = 0;
-	int bgstatus;
-	int bgexitstatus;
 
 	/* variables */
 	struct Statuskeeper * theSK = new_SK(0, -1);
@@ -135,17 +69,7 @@ int main(int argc, char const *argv[])
 			usage();
 			continue;
 		}
-		// if(theCK.no_cmd){
-		// 	theSK->type = 1;
-		// 	theSK->sk_sig = 1;
-		// 	printOut(theCK.cmd, 0);
-		// 	printOut("no_cmd", 1);
-		// 	printOut(": No such file or directory", 1);
-		// 	continue;
-		// }
-		
-		// if(theCK.io_error) // check for interrupted commands
-		// 	continue;
+
 		/* otherwise check for built in commands and run */
 		if(theCK.bltin){
 			// theSK->type = 1;
@@ -166,7 +90,7 @@ int main(int argc, char const *argv[])
 			} 
 			else if(strcmp(theCK.cmd, exitSt) == 0){
 				/* run exit */
-				theSK->sk_sig = myexit(&theCK, theSK);
+				theSK->sk_sig = myexit(&theCK);
 				theSK->type = 1;
 				if(theSK->sk_sig == 0)
 					theStatus = EXIT;
@@ -198,7 +122,6 @@ int main(int argc, char const *argv[])
 		free(input);
 		removeAllCirListDeque(&Pid_queue);
 	}
-	
 
 	return 0;
 }
@@ -222,7 +145,7 @@ void printWaitPidStatus(pid_t bgpid, int bgstatus, struct Pidkeeper PK){
 }
 
 void queueChecker(struct cirListDeque * Pid_queue, struct Pidkeeper PK, int killp){
-	int pc, bgstatus, bgexitstatus;
+	int pc, bgstatus;
 	pid_t bgpid = 0;
 
 	int size = getSizeCirListDeque(Pid_queue);
@@ -302,7 +225,6 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 			close(pipeFDs[0]); // close input pipe
 			fcntl(pipeFDs[1], F_SETFD, FD_CLOEXEC); // close output pipe on exec
 		}
-		int fd, fd2;
 
 		/* set up redirect stderr for bg process */
 		f_error = redirectOut(theCK, 2);
@@ -328,7 +250,7 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 				execvp(cmd, arguments); // w/ arguments
 			
 			/* print out any error if exec fails */
-			printf("there was an error\n");
+			// printf("there was an error\n");
 			perror(cmd);
 			/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
 				you will never get to this point if exec occurs, and output pipe will be closed
@@ -371,8 +293,7 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 		}			
 		// printf("status was %d, exitpid was %d\n", status, exitpid);
 	}
-	// free(arguments);
-	// return pid;
+	
 	return new_PK(pid, theSK->sk_sig);
 }
 
@@ -394,101 +315,92 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 
 	char * cmd = theCK->cmd;
 	int f_error = 0;
-	// if(exists){
-		/* fork a process */
-		int pid = fork();
-		char ** arguments = malloc( sizeof(char *) * theCK->num_args+2);
-		arguments[0] = cmd;
 
-		/* make an array of arguments */
-		int i;
-		for (i = 0; i < theCK->num_args; i++)
-		{
-			arguments[i+1] = theCK->args[i].arg;
+	/* fork a process */
+	int pid = fork();
+	char ** arguments = malloc( sizeof(char *) * theCK->num_args+2);
+	arguments[0] = cmd;
+
+	/* make an array of arguments */
+	int i;
+	for (i = 0; i < theCK->num_args; i++)
+	{
+		arguments[i+1] = theCK->args[i].arg;
+	}
+	arguments[theCK->num_args+1] = NULL;
+
+	/* in child, set up signal catching & exec */
+	if(pid == 0){
+		if(pipe_status != -1){
+			close(pipeFDs[0]); // close input pipe
+			fcntl(pipeFDs[1], F_SETFD, FD_CLOEXEC); // close output pipe on exec
 		}
-		arguments[theCK->num_args+1] = NULL;
+		/* catch */
+		sigaction(SIGINT, &child_action, NULL);
 
-		/* in child, set up signal catching & exec */
-		if(pid == 0){
-			if(pipe_status != -1){
-				close(pipeFDs[0]); // close input pipe
-				fcntl(pipeFDs[1], F_SETFD, FD_CLOEXEC); // close output pipe on exec
-			}
-			int fd, fd2;
-			/* catch */
-			sigaction(SIGINT, &child_action, NULL);
-
-			/* set up redirects */
-			/* if redin, do dup2 w/ stdin */
-			if(theCK->red_in){
-				f_error = redirectIn(theCK, 0);
-			}
-			/* if redout, do dup2 w/ stdut */
-			if(theCK->red_out){
-				f_error = redirectOut(theCK, 0);
-			}
-			// printf("f_error=%d\n", f_error);
-			if(!f_error){
-				/* execute the command */
-				if(theCK->red_in)
-					execlp(cmd, cmd, NULL); // w/ file
-				else
-					execvp(cmd, arguments); // w/ arguments
-				
-				/* print out any error if exec fails */
-				perror(cmd);	
-			} else {
-				printOut("cannot open ", 0);
-				printOut(theCK->infile, 0);
-				printOut(" for output", 1);
-			}
-			/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
-				you will never get to this point if exec occurs, and output pipe will be closed
-				on exec, causing read to receive 0 */
-			if(pipe_status != -1)	
-				write(pipeFDs[1], &send, msg_size);
+		/* set up redirects */
+		/* if redin, do dup2 w/ stdin */
+		if(theCK->red_in){
+			f_error = redirectIn(theCK, 0);
 		}
-
-		/* in parent, wait for pid */
-		else if(pid > 0){
-			// printf("%s\n", "I'm the parent");
-			if(pipe_status != -1)
-				close(pipeFDs[1]); // close output pipe
-			int status;
+		/* if redout, do dup2 w/ stdut */
+		if(theCK->red_out){
+			f_error = redirectOut(theCK, 0);
+		}
+		// printf("f_error=%d\n", f_error);
+		if(!f_error){
+			/* execute the command */
+			if(theCK->red_in)
+				execlp(cmd, cmd, NULL); // w/ file
+			else
+				execvp(cmd, arguments); // w/ arguments
 			
-			pid_t exitpid = waitpid(pid, &status, 0);
-			/* figure out exit status and fill Statuskeeper */
-			if (WIFEXITED(status))
-			{
-				/* get normal exit status */
-				int exitstatus = WEXITSTATUS(status);
-				/* try to read from pipe; if you get a result, it's going to be status 1 from child 
-					we want this to be the status that we pass on */
-				if(pipe_status != -1){
-					r = read(pipeFDs[0], &stat_msg, msg_size);
-					if (r > 0)
-						exitstatus = stat_msg;
-				}
-				
-				theSK->type = 1;
-				theSK->sk_sig = exitstatus;
-			} 
-			else{ // terminated by a signal
-				theSK->type = 2;
-				printStatusMsg(status, "terminated by signal ");
-				theSK->sk_sig = status;
-			}			
-			// printf("status was %d, exitpid was %d\n", status, exitpid);
+			/* print out any error if exec fails */
+			perror(cmd);	
+		} else {
+			printOut("cannot open ", 0);
+			printOut(theCK->infile, 0);
+			printOut(" for output", 1);
 		}
-		// free(arguments);
-		return pid;
-	// }
-	// else 
-	// {
-	// 	printOut(cmd, 0);
-	// 	printOut(": No such file or directory", 1);
-	// 	return -1;
-	// }
+		/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
+			you will never get to this point if exec occurs, and output pipe will be closed
+			on exec, causing read to receive 0 */
+		if(pipe_status != -1)	
+			write(pipeFDs[1], &send, msg_size);
+	}
+
+	/* in parent, wait for pid */
+	else if(pid > 0){
+		// printf("%s\n", "I'm the parent");
+		if(pipe_status != -1)
+			close(pipeFDs[1]); // close output pipe
+		int status;
+		
+		pid_t exitpid = waitpid(pid, &status, 0);
+		/* figure out exit status and fill Statuskeeper */
+		if (WIFEXITED(status))
+		{
+			/* get normal exit status */
+			int exitstatus = WEXITSTATUS(status);
+			/* try to read from pipe; if you get a result, it's going to be status 1 from child 
+				we want this to be the status that we pass on */
+			if(pipe_status != -1){
+				r = read(pipeFDs[0], &stat_msg, msg_size);
+				if (r > 0)
+					exitstatus = stat_msg;
+			}
+			
+			theSK->type = 1;
+			theSK->sk_sig = exitstatus;
+		} 
+		else{ // terminated by a signal
+			theSK->type = 2;
+			printStatusMsg(status, "terminated by signal ");
+			theSK->sk_sig = status;
+		}			
+	}
+	
+	return pid;
 }
 
 int redirectOut(struct Commandkeeper * theCK, int bg){
@@ -503,7 +415,6 @@ int redirectOut(struct Commandkeeper * theCK, int bg){
 	{
 	   	perror(theCK->cmd);
 		f_error = 1;
-		// exit(1);
 	}
 	else {
 		fd2 = dup2(fd, 1); 
@@ -511,7 +422,6 @@ int redirectOut(struct Commandkeeper * theCK, int bg){
 		{
 		   	perror(theCK->cmd);
 		   	f_error = 1;
-			// exit(2); 
 		}
 	}
 	return f_error;
@@ -526,9 +436,7 @@ int redirectIn(struct Commandkeeper * theCK, int bg){
 
 	if (fd == -1)
 	{
-	   	// perror(theCK->cmd);
 		f_error = 1;
-		// exit(1);
 	}
 	else {
 		fd2 = dup2(fd, 0); 
@@ -536,80 +444,13 @@ int redirectIn(struct Commandkeeper * theCK, int bg){
 		{
 		   	perror(theCK->cmd);
 		   	f_error = 1;
-			// exit(2); 
 		}
 	}
-	// printf("ferror: %d", f_error);
+
 	return f_error;
 }
 
-void killzombies() {
-    kill(0, SIGKILL);
-    int bgstatus;
-    int bgpid = waitpid(-1, &bgstatus, WNOHANG);
-	while( bgpid != 0 && bgpid != -1){
-		bgpid = waitpid(-1, &bgstatus, WNOHANG);
-		printOut("zombie killed", 1);
-	}
-    // while (n_children > 0) {
-    //     if (wait(NULL) != -1) {
-    //         n_children--;
-    //     }
-    // }
-}
-
-/*********************************************************************
-** Description: 
-** Check that a directory exists and change to that directory
-*********************************************************************/
-int checkDirInPath(char * fname) {
-	struct stat checkfor;
-	char * path = getenv("PATH");
-	char path_cpy[512];
-	// char name_cpy[512];
-	strcpy(path_cpy, path);
-	// memcpy(name_cpy, fname, strlen(fname));
-	// printOut(name_cpy, 1);
-	// printOut(fname, 1);
-	printOut(path_cpy, 1);
-	printOut(path, 1);
-	char * subString;
-	subString = strtok(path_cpy,":");
-	printOut(path_cpy, 1);
-	// printOut(path, 1);
-	// char ss[200];
-	// char * int_path;
-	char full_path[512];
-	int found = 1;
-	int n;
-
-	/* print out substring and get next one, if none strtok returns NULL */
-	while (subString != NULL && found != 0){
-		// memcpy(ss, subString, strlen(subString));
-		// int_path = strcat(subString, "/");
-		n = snprintf(full_path, 512, "%s%s%s", subString, "/", fname);
-		// full_path = strcat(int_path, fname);
-		// printf("full_path=%s\n", full_path);
-		if (stat(full_path, &checkfor) != -1) {
-		    // printf("name = %s\n", fname);
-			found = 0;
-		}
-		else {
-			subString = strtok(NULL, ":");
-			printOut(path_cpy, 1);
-			if(subString != NULL)
-				printOut(subString, 1);
-			// printf("substring= %li %s\n", sizeof(subString), subString);
-			// found = 1;
-		}
-	}
-	return found;
-} 
-
 struct Commandkeeper parseInString(char ** inputStr){
-	// char tmp[MAX_CMD_SIZE+1];
-	// strcpy(tmp, *inputStr);
-	// printf("inputstr=%s\n",*inputStr);
 	char * tmp = *inputStr;
 	us_int bg = 0,
 		bltin = 0,
@@ -617,7 +458,7 @@ struct Commandkeeper parseInString(char ** inputStr){
 	char * cmd;
 	char * infile = NULL;
 	char * outfile = NULL;
-	struct argArray args[512];
+	struct argArray args[MAX_NUM_ARGS];
 	struct Commandkeeper CK;
 	int str_len = strlen(tmp);
 	int red_in_count = 0;
@@ -642,29 +483,14 @@ struct Commandkeeper parseInString(char ** inputStr){
 	subString = strtok(tmp,DELIM);
 	cmd = subString;
 
-	// CK = new_CK(NULL, NULL, 0);
-	// if(cmd == NULL){
-	// 	CK.io_error = 1;
-	// 	return CK; // something went wrong
-	// }
-	// printf("before check cmd=%s\n", cmd);
-	// printf("before check ss=%s\n", subString);
+	/* get built in status */
 	if(strcmp(cmd, "cd") == 0 || strcmp(cmd, "status") == 0 || strcmp(cmd, "exit") == 0){
 		bltin = 1;
 	}
-	/* check for existence of command */ 
-	// else {
-	// 	no_cmd = checkDirInPath(tmp2);
-	// 	// printf("cmd exists=%d\n", no_cmd);
-	// }
-	
-	// printf("after cmd=%s\n", cmd);
-	// printf("after ss=%s\n", subString);
 
 	/* parse remaining tokens and determine if you have a > or <, argument, or filename */
 	int i = 0;
-	// printf("inputstr=%s\n",*inputStr);
-	// subString = strtok(tmp, DELIM);
+
 	subString = strtok(NULL, DELIM);
 	while (subString != NULL)
 	{
@@ -741,10 +567,6 @@ struct Commandkeeper parseInString(char ** inputStr){
 	return CK;
 }
 
-/*********************************************************************
-** Description: 
-** Remove the last character of a string if it is \n
-*********************************************************************/
 void removeLineEnding(char ** input){
 	/* create a string of 2049 and copy into tmp string */
 	char tmp[MAX_CMD_SIZE+1];
@@ -758,17 +580,7 @@ void removeLineEnding(char ** input){
 	}
 }
 
-/*********************************************************************
-** Description: 
-** Validate user's room entries and return 0 if a possible command, 
-** 1 if a comment or blank line
-*********************************************************************/
 int validateInput(char **input) {
-	// int i = 0;
-	/* if time, implement input validation*/
-	// while(**input != '\0'){
-	// }
-
 	/* if string contains no info, return 1 */
 	if(strlen(*input) <= 1){ // i.e. null or just \0
 		/* check for 0 length string or ^C so no newline */
@@ -778,64 +590,29 @@ int validateInput(char **input) {
 	}
 	/* if string begins with #, print string and return 1 */
 	if(**input == '#'){
-		printOut(*input, 0);
+		// printOut(*input, 0);
 		return 1;
 	}
 
 	return 0;
 }
 
-/********************************************************************
-** Description: 
-** Receive a command string, max size 2048
-** retString = pointer to char * (this is the "return" value)
-** roomNmOnly = name of a room ("Attic")
-** allRooms = string of all connected rooms ("Foyer, Dining, Bedroom.")
-********************************************************************/
-// void getInput(char **retString){
-// 	/* allocate your string w/ room for \0 */
-// 	// if(retString == NULL)
-// 	*retString = malloc( sizeof(char) * (MAX_CMD_SIZE + 1) );
-	
-// 	/* print and accept input while the string is not a possible command */
-// 	do {
-// 		printOut(": ", 0);
-// 		 get a string of max size 2048 to leave room for \0 
-// 		fgets(*retString, MAX_CMD_SIZE, stdin);
-// 		// printf("%li\n", strlen(*retString) );
-// 	} while (validateInput(retString) != 0);
-// 	/* get rid of a \n if it exists at end of string */
-// 	removeLineEnding(retString);
-// }
-
 void getInput(char **retString){
 	/* allocate your string w/ room for \0 */
-	// if(retString == NULL)
 	*retString = malloc( sizeof(char) * (MAX_CMD_SIZE + 1) );
 	
 	/* print and accept input while the string is not a possible command */
-	// do {
-		printOut(": ", 0);
-		/* get a string of max size 2048 to leave room for \0 */
-		fgets(*retString, MAX_CMD_SIZE, stdin);
-		// printf("%li\n", strlen(*retString) );
-	// } while (validateInput(retString) != 0);
-	/* get rid of a \n if it exists at end of string */
-	// removeLineEnding(retString);
+	printOut(": ", 0);
+	/* get a string of max size 2048 to leave room for \0 */
+	fgets(*retString, MAX_CMD_SIZE, stdin);
 }
 
 void caughtSig(){
-	// printOut("caught signal ", 1);
 	printf("%s\n", "caught signal");
-	// int i;
-	// i = 0;
 }
 
 void childSig(){
-	// printOut("caught signal ", 1);
 	printf("%s\n", "signal: child exited");
-	// int i;
-	// i = 0;
 }
 
 void printStatusMsgNL(int sk_sig, char * msg, int nl){
@@ -852,40 +629,7 @@ void printStatusMsgNL(int sk_sig, char * msg, int nl){
 		printOut(sig, 0);
 }
 
-// void setUpSignals(){
-// 	struct sigaction myact;
-// 	struct sigaction childact;
-// 	// void (*fp) (void) = caughtSig; // function pointer
-// 	// myact.sa_handler = SIG_IGN; // ignore a signal
-// 	myact.sa_handler = caughtSig; // ignore a signal
-// 	childact.sa_handler = childSig; // ignore a signal
-// 	// sigset_t my_sig_set;
-// 	// sigfillset(&my_sig_set); // fill w/ all signals
-// 	sigfillset(&(myact.sa_mask)); // fill w/ all signals
-// 	sigfillset(&(childact.sa_mask)); // fill w/ all signals
-// 	myact.sa_flags = 0;
-// 	childact.sa_flags = 0;
-
-// 	sigaction(SIGINT, &myact, NULL);
-// 	sigaction(SIGCHLD, &childact, NULL);
-// }
-/*********************************************************************
-** Description: 
-** Print using fputs and flush each time
-*********************************************************************/
-// void printOut(char * outString, int newln){
-// 	fputs(outString, stdout);
-// 	fflush(stdout); // flush the print buffer
-// 	if(newln){	
-// 		fputs("\n", stdout);
-// 		fflush(stdout);
-// 	}
-// }
-
-// ********************************************************************
-// ** Description: 
-// ** Automates memset() because 'memset' isn't very descriptive
-// ********************************************************************
-// void clearString(char * theString, int size) {
-// 	memset(theString, '\0', size);
-// }
+void printAllCK(struct Commandkeeper ck) {
+	printf("bg=%d, bltin=%d, red_in=%d, red_out=%d, red_error=%d, num_args=%d\n", ck.bg, ck.bltin, ck.red_in, ck.red_out, ck.red_error, ck.num_args);
+	printOut(ck.cmd, 1);
+}

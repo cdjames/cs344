@@ -1,3 +1,10 @@
+/*********************************************************************
+** Author: Collin James + CS 261 instructor (Samina Ehsan)
+** Date: 11/17/16
+** Description: A circular queue (from CS 261); used to hold 
+** Pidkeeper structs
+*********************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
