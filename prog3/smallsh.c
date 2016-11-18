@@ -1,8 +1,8 @@
 /*********************************************************************
 ** Author: Collin James
 ** Date: 11/2/16
-** Description: Logic for smallsh program; See
-** header for more information about functions
+** Description: Logic for smallsh program; See header for more 
+** information about functions
 *********************************************************************/
 
 /* includes */
@@ -25,7 +25,7 @@ int main(int argc, char const *argv[])
 	struct cirListDeque Pid_queue;
 	initCirListDeque(&Pid_queue);
 
-	// setUpSignals();
+	/* set to ignore certain signals */
 	struct sigaction ignore_action;
 	ignore_action.sa_handler = SIG_IGN;
 	sigfillset(&(ignore_action.sa_mask)); // fill w/ all signals
@@ -34,35 +34,33 @@ int main(int argc, char const *argv[])
 	sigaction(SIGQUIT, &ignore_action, NULL);
 	sigaction(SIGABRT, &ignore_action, NULL);
 
-	/* pid related vars */
+	/* pid to keep track of child and parent */
 	pid_t pid = -1;
 
 	/* variables */
 	struct Statuskeeper * theSK = new_SK(0, -1);
 	enum Status theStatus = CONTINUE;
 	struct Commandkeeper theCK;	
-	char * input; // allocated in getInput
+	char * input; // allocated in getInput, hold user input
 	char exitSt[] = "exit";
 	// int r; 
 
 	/* main logic; loop while not exit command and not child pid */
 	while(theStatus != EXIT && pid != 0){
 		/* keep and print all processes*/
-		queueChecker(&Pid_queue, PK, 0);
-		
-		/* validates input and puts in input variable */
-		getInput(&input);
-		if(validateInput(&input) != 0)
-			continue;
+		do{
+			queueChecker(&Pid_queue, PK, 0);
+			
+			/* gets input and puts in input variable */
+			getInput(&input);
+		} while(validateInput(&input) != 0);
+
 		/* get rid of a \n if it exists at end of string */
 		removeLineEnding(&input);
-		// printOut(input, 1); // print with a line ending; TESTING
-
 
 		/* process string */
 		theCK = parseInString(&input);
 
-		// printAllCK(theCK);
 		/* check for redirect errors and print usage */
 		if(theCK.red_error){
 			/* print usage and go to next loop iteration */
@@ -77,27 +75,21 @@ int main(int argc, char const *argv[])
 				/* run cd */
 				theSK->type = 1;
 				theSK->sk_sig = mycd(&theCK);
-
-				// continue;
 			}
 			else if(strcmp(theCK.cmd, "status") == 0){
 				/* run status*/
-				// printf("signal was %d\n", theSK->sk_sig);
-				// printf("type was %d\n", theSK->type);
 				theSK->sk_sig = mystatus(&theCK, theSK);
 				theSK->type = 1;
-				// continue;
 			} 
 			else if(strcmp(theCK.cmd, exitSt) == 0){
-				/* run exit */
+				/* test for exit */
 				theSK->sk_sig = myexit(&theCK);
 				theSK->type = 1;
 				if(theSK->sk_sig == 0)
-					theStatus = EXIT;
-				// continue;
+					theStatus = EXIT; // gets us out of the loop
 			}
 		}
-		/* otherwise hand external commands */
+		/* otherwise handle external commands */
 		else{
 			/* if no bg symbol, run in foreground */
 			if(!theCK.bg)
@@ -106,18 +98,18 @@ int main(int argc, char const *argv[])
 			else{
 				PK = runInBack(&theCK, theSK);
 				pid = PK.pid;
+				/* add your process to the queue and print out */
 				addBackCirListDeque(&Pid_queue, PK);
-				// pid = 19;
 				printStatusMsg(PK.pid, "background pid is ");
 			}
 		}
 	}
 
-	/* other cleanup */
+	/* cleanup at exit */
 	if(pid != 0){ // don't do this from a child!
-		/* kill any remaining processes */
+		/* kill any remaining processes with killp flag */
 		queueChecker(&Pid_queue, PK, 1);
-		/* free malloc'd integers */
+		/* free malloc'd vars */
 		free_sk(theSK);
 		free(input);
 		removeAllCirListDeque(&Pid_queue);
@@ -232,6 +224,7 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 		if(theCK->red_in){
 			f_error = redirectIn(theCK, 0);
 		}
+		/* otherwise, redirect to /dev/null */
 		else
 			f_error = redirectIn(theCK, 1);
 		/* if redout, do dup2 w/ stdout */
@@ -286,7 +279,7 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 		else if(WEXITSTATUS(status) != 127 && WEXITSTATUS(status) != 52) { // terminated by a signal other than 127
 		// else { // terminated by a signal other than 127
 			theSK->type = 2;
-			int exitstatus = WEXITSTATUS(status); 
+			// int exitstatus = WEXITSTATUS(status); 
 			// printStatusMsg(exitstatus, "actual signal? ");
 			printStatusMsg(status, "terminated by signal ");
 			theSK->sk_sig = status;
@@ -405,17 +398,25 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 
 int redirectOut(struct Commandkeeper * theCK, int bg){
 	int fd, fd2, fd3, fde, f_error = 0;
+	/* if foreground process, open the outfile, otherwise redirect to /dev/null */
 	if(bg == 0)
 		fd = open(theCK->outfile, O_WRONLY|O_CREAT|O_TRUNC, 0644);
 	else
 		fd = open("/dev/null", O_WRONLY, 0644);
-	fde = open("/dev/null", O_WRONLY, 0644);
-	fd3 = dup2(fde, 2); // redirect stderr to null
+
+	/* redirect bg stderr to null */
+	if(bg == 1){
+		fde = open("/dev/null", O_WRONLY, 0644);
+		fd3 = dup2(fde, 2); // redirect stderr to null
+	}
+
+	/* test for file */
 	if (fd == -1)
 	{
 	   	perror(theCK->cmd);
 		f_error = 1;
 	}
+	/* file is open, so redirect it */
 	else {
 		fd2 = dup2(fd, 1); 
 		if (fd2 == -1)
@@ -424,10 +425,12 @@ int redirectOut(struct Commandkeeper * theCK, int bg){
 		   	f_error = 1;
 		}
 	}
+	/* 1 or 0 */
 	return f_error;
 }
 
 int redirectIn(struct Commandkeeper * theCK, int bg){
+	/* similar to above function */
 	int fd, fd2, f_error = 0;
 	if(bg == 0)
 		fd = open(theCK->infile, O_RDONLY); 
@@ -451,6 +454,7 @@ int redirectIn(struct Commandkeeper * theCK, int bg){
 }
 
 struct Commandkeeper parseInString(char ** inputStr){
+	/* create variables for holding various CK items and the string */
 	char * tmp = *inputStr;
 	us_int bg = 0,
 		bltin = 0,
@@ -466,12 +470,13 @@ struct Commandkeeper parseInString(char ** inputStr){
 	int red_in_sat = 0;
 	int red_out_sat = 0;
 	int red_error = 0;
+
 	/* check last character for & and set bg */
 	if(tmp[str_len-1] == '&'){
 		bg = 1;
 		tmp[str_len-1] = '\0';
 		str_len = strlen(tmp);
-		/* remove space or newline at end of string if necessary */
+		/* remove space at end of string if necessary */
 		if(tmp[str_len] == ' '){
 			tmp[str_len] = '\0';
 			str_len = strlen(tmp);
@@ -490,16 +495,11 @@ struct Commandkeeper parseInString(char ** inputStr){
 
 	/* parse remaining tokens and determine if you have a > or <, argument, or filename */
 	int i = 0;
-
+	/* get next token */
 	subString = strtok(NULL, DELIM);
-	while (subString != NULL)
+	/* loop until you have all the arguments, or until you hit the max of 512 */
+	while (subString != NULL && i < MAX_NUM_ARGS)
 	{
-
-		// printf("in while...%s\n", subString);
-		/* get next token */
-		
-		// printf("word=%s\n", subString);
-		// fflush(stdout);
 		/* is it < or >? If so, start your counter, which should always be 1 */
 		if(strcmp(subString, "<") == 0){
 			// printOut("input redirect", 1);
@@ -513,7 +513,7 @@ struct Commandkeeper parseInString(char ** inputStr){
 			// printf("output redirect\n");
 			red_error += 1;
 		}
-		// /* not a redirection character */
+		/* not a redirection character */
 		else {
 			if(red_in_count == 1 || red_out_count == 1){ // you've had a redirection operator, so no more args
 				if(red_in_count){ 
@@ -529,7 +529,7 @@ struct Commandkeeper parseInString(char ** inputStr){
 					red_out_sat += 1;
 				}
 			}
-			else {	// you've got an argument
+			else {	// you've got an argument; save it for CK
 				args[i].arg = subString;
 				i++;
 			}
@@ -541,7 +541,6 @@ struct Commandkeeper parseInString(char ** inputStr){
 	CK = new_CK(cmd, args, i);
 
 	/* check for redirect errors */
-	// printf("red_in_count=%d, red_in_sat=%d, red_out_count=%d, red_out_sat=%d\n", red_in_count, red_in_sat, red_out_count, red_out_sat);
 	/* no filenames */
 	if( (red_in_count > 0 && red_in_sat == 0) || (red_out_count > 0 && red_out_sat == 0))
 		red_error = 1;

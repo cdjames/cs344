@@ -6,6 +6,8 @@
 *********************************************************************/
 #include "builtins.h"
 
+const int MAX_PATH = FILENAME_MAX; // maximum file length
+
 char nsd[] = ": No such file or directory"; // for cd error message
 
 int mystatus(struct Commandkeeper * CK, struct Statuskeeper * SK){
@@ -41,7 +43,7 @@ int mycd(struct Commandkeeper * CK){
 	char* home;
 	char* restofpath;
 	char* fullarg;
-	char cwd[512];
+	char cwd[MAX_PATH];
 	int r = 0;
 	struct stat checkfor;
 	home = getenv ("HOME");
@@ -57,7 +59,7 @@ int mycd(struct Commandkeeper * CK){
 		/* user entered 'cd' -- go home */
 		if(CK->num_args == 0){
 			chdir(home);
-			getcwd(cwd, 512);
+			getcwd(cwd, MAX_PATH);
 			// printOut(cwd, 1);
 			// change to home directory
 		}
@@ -78,7 +80,7 @@ int mycd(struct Commandkeeper * CK){
 				else
 				{
 					chdir(home);
-					getcwd(cwd, 512);
+					getcwd(cwd, MAX_PATH);
 					// printOut(cwd, 1);
 				}
 			}
@@ -114,14 +116,16 @@ void printOut(char * outString, int newln){
 
 
 int checkAndChangeDir(char * fullarg, struct stat * checkfor) {
-	char cwd[512];
+	char cwd[MAX_PATH];
 	char * fullerror;
+	/* check for your file */
 	if (stat(fullarg, checkfor) != -1) {
 	    chdir(fullarg);
-		getcwd(cwd, 512);
+		getcwd(cwd, MAX_PATH);
 		// printOut(cwd, 1);
 		return 0;
 	}
+	/* no file; print error */
 	else {
 		fullerror = strcat(fullarg, nsd);
 		printOut("cd: ", 0);
@@ -135,6 +139,7 @@ void printStatusMsg(int sk_sig, char * msg){
 	char sig[buf_s];
 	int n;
 
+	/* make a string from the int */
 	n = snprintf(sig, buf_s, "%d", sk_sig);
 	printOut(msg, 0);
 	printOut(sig, 1);
