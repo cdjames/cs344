@@ -12,6 +12,14 @@
 #define ST_SIZE sizeof(struct Statuskeeper)
 #endif
 
+struct Pidkeeper new_PK(pid_t pid, int status)
+{
+	struct Pidkeeper pk;
+	pk.pid = pid;
+	pk.status = status;
+	return pk;
+}
+
 struct Statuskeeper * new_SK(us_int type, int sk_sig){
 	struct Statuskeeper * st = (ST *) malloc(ST_SIZE);
 	st->type = type;
@@ -27,6 +35,7 @@ struct Commandkeeper new_CK(char * cmd, struct argArray * args, int num_args){
 	ck.red_in = 0;
 	ck.red_out = 0;
 	ck.red_error = 0;
+	ck.no_cmd=0;
 	// ck.io_error = 0;
 	ck.num_args = num_args;
 	ck.cmd = cmd;

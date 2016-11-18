@@ -53,7 +53,7 @@ int mycd(struct Commandkeeper * CK){
 	struct stat checkfor;
 	home = getenv ("HOME");
 	fullarg = CK->args[0].arg;
- 
+ 	// printOut("got here", 1);
  	/* user entered >1 argument */
 	if(CK->num_args > 1){
 		// print usage and return 1

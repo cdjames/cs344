@@ -8,6 +8,21 @@
 #define NEWT_H
 #include <stdlib.h> // for malloc
 #include <string.h>  	// for memset
+#include <unistd.h>		// for pid_t
+#include <sys/types.h> 	// for struct stat
+
+# ifndef TYPE
+# define TYPE      struct Pidkeeper
+# define TYPE_SIZE sizeof(struct Pidkeeper)
+# endif
+
+# ifndef LT
+# define LT(A, B) ((A) < (B))
+# endif
+
+# ifndef EQ
+# define EQ(A, B) ((A) == (B))
+# endif
 
 // int MAX_NUM_ARGS = 512;
 
@@ -29,7 +44,8 @@ struct Commandkeeper
 		bltin,		// 0/1 -- built in function?
 		red_in,		// 0/1 -- redirect in?
 		red_out,		// 0/1 -- redirect out?
-		red_error,		
+		red_error,
+		no_cmd,		
 		// io_error,
 		num_args;	// >= 0 -- # of arguments
 	
@@ -38,6 +54,14 @@ struct Commandkeeper
 	char * infile;		// input file
 	char * outfile;	// output file
 };
+
+struct Pidkeeper
+{
+	pid_t pid;
+	int status;
+};
+
+struct Pidkeeper new_PK(pid_t pid, int status);
 
 struct Statuskeeper * new_SK(us_int type, int sk_sig);
 
