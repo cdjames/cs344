@@ -10,7 +10,7 @@ cirListDeque.o: cirListDeque.c cirListDeque.h newtypes.h
 	gcc -g -Wall -c cirListDeque.c
 	
 builtins.o: builtins.c builtins.h 
-	gcc -g -Wall -c builtins.c newtypes.o
+	gcc -g -Wall -c builtins.c
 
 newtypes.o: newtypes.c newtypes.h 
 	gcc -g -Wall -c newtypes.c 

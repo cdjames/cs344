@@ -283,11 +283,11 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 			theSK->type = 1;
 			theSK->sk_sig = exitstatus;
 		} 
-		else if(WEXITSTATUS(status) != 127) { // terminated by a signal other than 127
+		else if(WEXITSTATUS(status) != 127 && WEXITSTATUS(status) != 52) { // terminated by a signal other than 127
 		// else { // terminated by a signal other than 127
 			theSK->type = 2;
 			int exitstatus = WEXITSTATUS(status); 
-			printStatusMsg(exitstatus, "actual signal? ");
+			// printStatusMsg(exitstatus, "actual signal? ");
 			printStatusMsg(status, "terminated by signal ");
 			theSK->sk_sig = status;
 		}			
