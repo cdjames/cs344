@@ -24,6 +24,7 @@ int checkAndChangeDir(char * fullarg, struct stat * checkfor);
 int mycd(struct Commandkeeper * CK);
 void printStatusMsg(int sk_sig, char * msg);
 int mystatus(struct Commandkeeper * CK, struct Statuskeeper * SK);
+int myexit(struct Commandkeeper * CK, struct Statuskeeper * SK);
 
 #endif
 

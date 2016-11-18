@@ -11,7 +11,7 @@ int mystatus(struct Commandkeeper * CK, struct Statuskeeper * SK){
 	/* check arguments */
 	if(CK->num_args > 0){
 		// print usage and return 1
-		printOut("too many arguments", 1);
+		printOut("status: too many arguments", 1);
 		return 1;
 	}
 	/* check statuskeeper and perform necessary functions */
@@ -57,7 +57,7 @@ int mycd(struct Commandkeeper * CK){
  	/* user entered >1 argument */
 	if(CK->num_args > 1){
 		// print usage and return 1
-		printOut("too many arguments", 1);
+		printOut("cd: too many arguments", 1);
 		return 1;
 	}
 	else {
@@ -65,7 +65,7 @@ int mycd(struct Commandkeeper * CK){
 		if(CK->num_args == 0){
 			chdir(home);
 			getcwd(cwd, 512);
-			printOut(cwd, 1);
+			// printOut(cwd, 1);
 			// change to home directory
 		}
 		/* user entered 'cd arg' */
@@ -86,7 +86,7 @@ int mycd(struct Commandkeeper * CK){
 				{
 					chdir(home);
 					getcwd(cwd, 512);
-					printOut(cwd, 1);
+					// printOut(cwd, 1);
 				}
 			}
 			/* if /, ., .., or plain arg, just check that dir and change if possible */
@@ -98,6 +98,34 @@ int mycd(struct Commandkeeper * CK){
 		}
 	}
 	return 0; // successful ending
+}
+
+int myexit(struct Commandkeeper * CK, struct Statuskeeper * SK){
+	/* check arguments */
+	if(CK->num_args > 0){
+		// print usage and return 1
+		printOut("exit: too many arguments", 1);
+		return 1;
+	}
+	/* check statuskeeper and perform necessary functions */
+	// else {
+	// 	/* if empty SK.type (0), no completed jobs */
+	// 	if(SK->type == 0)
+	// 	{
+	// 		printOut("no completed jobs", 1);
+	// 	}
+	// 	/* if 1, "exit value _" */
+	// 	else if(SK->type == 1)
+	// 	{
+	// 		printStatusMsg(SK->sk_sig, "exit value ");
+	// 	}
+	// 	/* if 2, "terminated by signal __" */		
+	// 	else
+	// 	{
+	// 		printStatusMsg(SK->sk_sig, "terminated by signal ");
+	// 	}
+	// }
+	return 0;
 }
 
 /*********************************************************************
@@ -123,11 +151,12 @@ int checkAndChangeDir(char * fullarg, struct stat * checkfor) {
 	if (stat(fullarg, checkfor) != -1) {
 	    chdir(fullarg);
 		getcwd(cwd, 512);
-		printOut(cwd, 1);
+		// printOut(cwd, 1);
 		return 0;
 	}
 	else {
 		fullerror = strcat(fullarg, nsd);
+		printOut("cd: ", 0);
 		printOut(fullerror, 1);
 		return 1;
 	}

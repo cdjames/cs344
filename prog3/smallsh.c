@@ -20,6 +20,7 @@
 #include "cirListDeque.h"
 
 void getInput(char **retString);
+int validateInput(char **input);
 void clearString(char * theString, int size);
 void removeLineEnding(char ** input);
 void printOut(char * outString, int newln);
@@ -36,6 +37,7 @@ void printStatusMsgNL(int sk_sig, char * msg, int nl);
 void killzombies();
 void usage();
 void queueChecker(struct cirListDeque * Pid_queue, struct Pidkeeper PK, int killp);
+void printWaitPidStatus(pid_t bgpid, int bgstatus, struct Pidkeeper PK);
 
 /* Global constants */
 const int MAX_CMD_SIZE = 2048;
@@ -116,75 +118,74 @@ int main(int argc, char const *argv[])
 		
 		/* validates input and puts in input variable */
 		getInput(&input);
+		if(validateInput(&input) != 0)
+			continue;
+		/* get rid of a \n if it exists at end of string */
+		removeLineEnding(&input);
 		// printOut(input, 1); // print with a line ending; TESTING
 
-		/* look for exit command*/
-		if(strcmp(input, exitSt) != 0){
-		// 	/* not an exit command; process string */
-			theCK = parseInString(&input);
 
-			// printAllCK(theCK);
-			/* check for redirect errors and print usage */
-			if(theCK.red_error){
-				/* print usage and go to next loop iteration */
-				usage();
-				continue;
-			}
-			if(theCK.no_cmd){
+		/* process string */
+		theCK = parseInString(&input);
+
+		// printAllCK(theCK);
+		/* check for redirect errors and print usage */
+		if(theCK.red_error){
+			/* print usage and go to next loop iteration */
+			usage();
+			continue;
+		}
+		// if(theCK.no_cmd){
+		// 	theSK->type = 1;
+		// 	theSK->sk_sig = 1;
+		// 	printOut(theCK.cmd, 0);
+		// 	printOut("no_cmd", 1);
+		// 	printOut(": No such file or directory", 1);
+		// 	continue;
+		// }
+		
+		// if(theCK.io_error) // check for interrupted commands
+		// 	continue;
+		/* otherwise check for built in commands and run */
+		if(theCK.bltin){
+			// theSK->type = 1;
+			if(strcmp(theCK.cmd, "cd") == 0){
+				/* run cd */
 				theSK->type = 1;
-				theSK->sk_sig = 1;
-				printOut(theCK.cmd, 0);
-				printOut(": No such file or directory", 1);
-				continue;
-			}
-			
-			// if(theCK.io_error) // check for interrupted commands
-			// 	continue;
-			/* otherwise check for built in commands and run */
-			if(theCK.bltin){
-				// theSK->type = 1;
-				if(strcmp(theCK.cmd, "cd") == 0){
-					/* run cd */
-					theSK->type = 1;
-					theSK->sk_sig = mycd(&theCK);
+				theSK->sk_sig = mycd(&theCK);
 
-					continue;
-				}
-				else if(strcmp(theCK.cmd, "status") == 0){
-					/* run status*/
-					// printf("signal was %d\n", theSK->sk_sig);
-					// printf("type was %d\n", theSK->type);
-					theSK->sk_sig = mystatus(&theCK, theSK);
-					theSK->type = 1;
-					continue;
-				} 
-				else if(strcmp(theCK.cmd, exitSt) == 0){
-					/* run exit */
-					theStatus = EXIT;
-					continue;
-				}
+				// continue;
 			}
-			/* otherwise hand external commands */
-			else{
-				/* if no bg symbol, run in foreground */
-				if(!theCK.bg)
-					pid = runInFore(&theCK, theSK);
-				else{
-					PK = runInBack(&theCK, theSK);
-					pid = PK.pid;
-					addBackCirListDeque(&Pid_queue, PK);
-					// pid = 19;
-					printStatusMsg(PK.pid, "background pid is ");
-				}
+			else if(strcmp(theCK.cmd, "status") == 0){
+				/* run status*/
 				// printf("signal was %d\n", theSK->sk_sig);
 				// printf("type was %d\n", theSK->type);
-				/* otherwise, run in background */
-
+				theSK->sk_sig = mystatus(&theCK, theSK);
+				theSK->type = 1;
+				// continue;
+			} 
+			else if(strcmp(theCK.cmd, exitSt) == 0){
+				/* run exit */
+				theSK->sk_sig = myexit(&theCK, theSK);
+				theSK->type = 1;
+				if(theSK->sk_sig == 0)
+					theStatus = EXIT;
+				// continue;
 			}
-		} 
-		/* get out of program */
-		else {
-			theStatus = EXIT;
+		}
+		/* otherwise hand external commands */
+		else{
+			/* if no bg symbol, run in foreground */
+			if(!theCK.bg)
+				pid = runInFore(&theCK, theSK);
+			/* otherwise, run in background */
+			else{
+				PK = runInBack(&theCK, theSK);
+				pid = PK.pid;
+				addBackCirListDeque(&Pid_queue, PK);
+				// pid = 19;
+				printStatusMsg(PK.pid, "background pid is ");
+			}
 		}
 	}
 
@@ -202,7 +203,7 @@ int main(int argc, char const *argv[])
 	return 0;
 }
 
-void printWaitPidStatus(pid_t bgpid, int bgstatus){
+void printWaitPidStatus(pid_t bgpid, int bgstatus, struct Pidkeeper PK){
 	int bgexitstatus;
 	if(bgpid != 0 && bgpid != -1){
 		printStatusMsgNL(bgpid, "background pid ", 0);
@@ -212,7 +213,7 @@ void printWaitPidStatus(pid_t bgpid, int bgstatus){
 			// printf("The process exited normally\n"); 
 			bgexitstatus = WEXITSTATUS(bgstatus); 
 			// printf("exit status was %d\n", exitstatus);
-			printStatusMsg(bgexitstatus, " is done: exit value ");
+			printStatusMsg( (PK.status != 1 ? bgexitstatus : PK.status), " is done: exit value ");
 		} 
 		else{ // terminated by a signal
 			printStatusMsg(bgstatus, " is done: terminated by signal ");
@@ -233,9 +234,9 @@ void queueChecker(struct cirListDeque * Pid_queue, struct Pidkeeper PK, int kill
 		removeFrontCirListDeque(Pid_queue);
 		bgpid = waitpid(PK.pid, &bgstatus, WNOHANG);
 		/* if pgpid is collected, print it out */
-		
+		// printf("bgpid=%d\n", bgpid);
 		if(bgpid != 0 && bgpid != -1){
-			printWaitPidStatus(bgpid, bgstatus);
+			printWaitPidStatus(bgpid, bgstatus, PK);
 		}
 		/* if not collected, put it back in the queue */
 		else {
@@ -244,9 +245,8 @@ void queueChecker(struct cirListDeque * Pid_queue, struct Pidkeeper PK, int kill
 				kill(PK.pid, SIGKILL);
 				bgpid = waitpid(PK.pid, &bgstatus, WNOHANG);
 				if(bgpid != 0 && bgpid != -1){
-					printWaitPidStatus(bgpid, bgstatus);
+					printWaitPidStatus(bgpid, bgstatus, PK);
 				}
-				
 			}
 			else
 				addBackCirListDeque(Pid_queue, PK);
@@ -269,6 +269,17 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 	sigaction(SIGQUIT, &def_action, NULL);
 	sigaction(SIGABRT, &def_action, NULL);
 
+	/* set up pipe for communicating failures with parent */
+	int r, 
+		pipeFDs[2],
+	 	send = 1, 	// data to be sent
+		stat_msg,	// receive data here
+		pipe_status; // save status of pipe
+	long int msg_size = sizeof(send);
+
+	if( (pipe_status = pipe(pipeFDs)) == -1)
+		perror("failed to set up pipe");
+
 	char * cmd = theCK->cmd;
 	int f_error = 0;
 	
@@ -287,9 +298,13 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 
 	/* in child, set up redirection & exec */
 	if(pid == 0){
+		if(pipe_status != -1){
+			close(pipeFDs[0]); // close input pipe
+			fcntl(pipeFDs[1], F_SETFD, FD_CLOEXEC); // close output pipe on exec
+		}
 		int fd, fd2;
 
-		/* set up redirects */
+		/* set up redirect stderr for bg process */
 		f_error = redirectOut(theCK, 2);
 		/* if redin, do dup2 w/ stdin */
 		if(theCK->red_in){
@@ -313,23 +328,36 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 				execvp(cmd, arguments); // w/ arguments
 			
 			/* print out any error if exec fails */
-			// printf("there was an error\n");
+			printf("there was an error\n");
 			perror(cmd);
+			/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
+				you will never get to this point if exec occurs, and output pipe will be closed
+				on exec, causing read to receive 0 */
+			if(pipe_status != -1)	
+				write(pipeFDs[1], &send, msg_size);
 		}
 	}
 
 	/* in parent, wait for pid */
 	else if(pid > 0){
 		// printf("%s\n", "I'm the parent");
+		if(pipe_status != -1)
+			close(pipeFDs[1]); // close output pipe
 		int status;
-		// kill(pid, SIGKILL);
+		
 		pid_t exitpid = waitpid(pid, &status, WNOHANG);
 		/* figure out exit status and fill Statuskeeper */
 		if (WIFEXITED(status))
 		{
 			// printf("The process exited normally\n"); 
 			int exitstatus = WEXITSTATUS(status); 
-			// printf("exit status was %d\n", exitstatus);
+			/* try to read from pipe; if you get a result, it's going to be status 1 from child 
+				we want this to be the status that we pass on */
+			if(pipe_status != -1){
+				r = read(pipeFDs[0], &stat_msg, msg_size);
+				if (r > 0)
+					exitstatus = stat_msg;
+			}
 			theSK->type = 1;
 			theSK->sk_sig = exitstatus;
 		} 
@@ -399,7 +427,7 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 			if(theCK->red_out){
 				f_error = redirectOut(theCK, 0);
 			}
-
+			// printf("f_error=%d\n", f_error);
 			if(!f_error){
 				/* execute the command */
 				if(theCK->red_in)
@@ -408,13 +436,17 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 					execvp(cmd, arguments); // w/ arguments
 				
 				/* print out any error if exec fails */
-				perror(cmd);
-				/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
-					you will never get to this point if exec occurs, and output pipe will be closed
-					on exec, causing read to receive 0 */
-				if(pipe_status != -1)	
-					write(pipeFDs[1], &send, msg_size);
+				perror(cmd);	
+			} else {
+				printOut("cannot open ", 0);
+				printOut(theCK->infile, 0);
+				printOut(" for output", 1);
 			}
+			/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
+				you will never get to this point if exec occurs, and output pipe will be closed
+				on exec, causing read to receive 0 */
+			if(pipe_status != -1)	
+				write(pipeFDs[1], &send, msg_size);
 		}
 
 		/* in parent, wait for pid */
@@ -494,7 +526,7 @@ int redirectIn(struct Commandkeeper * theCK, int bg){
 
 	if (fd == -1)
 	{
-	   	perror(theCK->cmd);
+	   	// perror(theCK->cmd);
 		f_error = 1;
 		// exit(1);
 	}
@@ -507,6 +539,7 @@ int redirectIn(struct Commandkeeper * theCK, int bg){
 			// exit(2); 
 		}
 	}
+	// printf("ferror: %d", f_error);
 	return f_error;
 }
 
@@ -759,20 +792,36 @@ int validateInput(char **input) {
 ** roomNmOnly = name of a room ("Attic")
 ** allRooms = string of all connected rooms ("Foyer, Dining, Bedroom.")
 ********************************************************************/
+// void getInput(char **retString){
+// 	/* allocate your string w/ room for \0 */
+// 	// if(retString == NULL)
+// 	*retString = malloc( sizeof(char) * (MAX_CMD_SIZE + 1) );
+	
+// 	/* print and accept input while the string is not a possible command */
+// 	do {
+// 		printOut(": ", 0);
+// 		 get a string of max size 2048 to leave room for \0 
+// 		fgets(*retString, MAX_CMD_SIZE, stdin);
+// 		// printf("%li\n", strlen(*retString) );
+// 	} while (validateInput(retString) != 0);
+// 	/* get rid of a \n if it exists at end of string */
+// 	removeLineEnding(retString);
+// }
+
 void getInput(char **retString){
 	/* allocate your string w/ room for \0 */
 	// if(retString == NULL)
 	*retString = malloc( sizeof(char) * (MAX_CMD_SIZE + 1) );
 	
 	/* print and accept input while the string is not a possible command */
-	do {
+	// do {
 		printOut(": ", 0);
 		/* get a string of max size 2048 to leave room for \0 */
 		fgets(*retString, MAX_CMD_SIZE, stdin);
 		// printf("%li\n", strlen(*retString) );
-	} while (validateInput(retString) != 0);
+	// } while (validateInput(retString) != 0);
 	/* get rid of a \n if it exists at end of string */
-	removeLineEnding(retString);
+	// removeLineEnding(retString);
 }
 
 void caughtSig(){
