@@ -260,7 +260,8 @@ struct Pidkeeper runInBack(struct Commandkeeper * theCK, struct Statuskeeper * t
 			close(pipeFDs[1]); // close output pipe
 		int status;
 		
-		pid_t exitpid = waitpid(pid, &status, WNOHANG);
+		pid_t exitpid;
+		exitpid = waitpid(pid, &status, WNOHANG);
 		/* figure out exit status and fill Statuskeeper */
 		if (WIFEXITED(status))
 		{
@@ -369,7 +370,8 @@ int runInFore(struct Commandkeeper * theCK, struct Statuskeeper * theSK){
 			close(pipeFDs[1]); // close output pipe
 		int status;
 		
-		pid_t exitpid = waitpid(pid, &status, 0);
+		pid_t exitpid;
+		exitpid = waitpid(pid, &status, 0);
 		/* figure out exit status and fill Statuskeeper */
 		if (WIFEXITED(status))
 		{
