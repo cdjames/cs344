@@ -5,12 +5,16 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/wait.h> 	// for wait/waitpid
+#include "newtypes.h"
 
 const int maxConnections = 5;
 void error(const char *msg) { 
 	perror(msg); 
 	exit(1); 
 } // Error function used for reporting issues
+
+struct Pidkeeper doEncryptInChild(int cnctFD) ;
 
 int main(int argc, char *argv[])
 {
@@ -20,6 +24,7 @@ int main(int argc, char *argv[])
 		numConnections = 0; // store number of connections (5 max)
 	int status,
 		wpid;
+	struct Pidkeeper thePK = new_PK(pid, exitSignal);
 		
 	socklen_t sizeOfClientInfo;
 	// char buffer[256];
@@ -49,7 +54,7 @@ int main(int argc, char *argv[])
 	listenSocketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
 	if (listenSocketFD < 0) error("SERVER: ERROR opening socket");
 
-	// lose the pesky "address already in use" error message (from beej.us)
+	// reuse previously used ports before they are released by OS (from beej.us) -- doesn't work
     // setsockopt(listenSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	// Enable the socket to begin listening
@@ -68,6 +73,7 @@ int main(int argc, char *argv[])
 		/* collect finished processes */
 		do {
 			wpid = waitpid(-1, &status, WNOHANG);
+			printf("wpid=%d\n", wpid);
 		} while (wpid > 0);
 
 		/* copy the master set into a temporary set for this iteration */
@@ -105,7 +111,9 @@ int main(int argc, char *argv[])
 	        			printf("getting data\n");
 	        			/**** do fork here; the following should be in the child ****/
 						
-						exitSignal = doEncryptInChild(i);
+						thePK = doEncryptInChild(i);
+						pid = thePK.pid;
+						exitSignal = thePK.status;
 						FD_CLR(i, &master); // remove the connection from the master set
 						// numConnections -= 1; // make another connection available
 	        		}
@@ -115,23 +123,39 @@ int main(int argc, char *argv[])
 	}
 
 /**** this is done in the parent at the end of the program ****/
-	close(listenSocketFD); // Close the listening socket
+	if(pid != 0)
+		close(listenSocketFD); // Close the listening socket
+
 	return 0; 
 }
 
-int doEncryptInChild(int cnctFD) {
+struct Pidkeeper doEncryptInChild(int cnctFD) {
 	// Get the message from the client and display it
-	char buffer[256];
-	int charsRead, exitSignal = 0;
-	memset(buffer, '\0', 256);
-	charsRead = recv(cnctFD, buffer, 255, 0); // Read the client's message from the socket
-	if (charsRead < 0) error("SERVER: ERROR reading from socket");
-	printf("SERVER: I received this from the client: \"%s\"\n", buffer);
-	if(strcmp(buffer, "exit") == 0)
-		exitSignal = 1;
-	// Send a Success message back to the client
-	charsRead = send(cnctFD, "I am the server, and I got your message", 39, 0); // Send success back
-	if (charsRead < 0) error("SERVER: ERROR writing to socket");
-	close(cnctFD); // Close the existing socket which is connected to the client
-	return exitSignal;
+	/* fork a process */
+	int pid = fork();
+	int exitSignal = 0,
+		status;
+
+	/* in child, do the stuff */
+	if(pid == 0) {
+		char buffer[256];
+		int charsRead;
+		memset(buffer, '\0', 256);
+		charsRead = recv(cnctFD, buffer, 255, 0); // Read the client's message from the socket
+		if (charsRead < 0) error("SERVER: ERROR reading from socket");
+		printf("SERVER: I received this from the client: \"%s\"\n", buffer);
+		if(strcmp(buffer, "exit") == 0)
+			exitSignal = 1;
+		// Send a Success message back to the client
+		charsRead = send(cnctFD, "I am the server, and I got your message", 39, 0); // Send success back
+		if (charsRead < 0) error("SERVER: ERROR writing to socket");
+		close(cnctFD); // Close the existing socket which is connected to the client
+	} 
+	/* let the parent wait to collect, but don't hang */
+	else if (pid > 0) {
+		pid_t exitpid;
+		exitpid = waitpid(pid, &status, WNOHANG);
+	}
+
+	return new_PK(pid, exitSignal);
 }
