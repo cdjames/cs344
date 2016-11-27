@@ -8,17 +8,13 @@
 #include <fcntl.h>		// for file manipulation
 #include <sys/wait.h> 	// for wait/waitpid
 #include "newtypes.h"
+#include "utils.h"
 
 const int maxConnections = 5;
 const int hdShakeLen = 7;
 const int maxBufferLen = 70000;
 // const char PROG_CODE[] = "opt_enc";
 const char PROG_CODE[] = "./clien";
-
-void error(const char *msg) { 
-	perror(msg); 
-	exit(1); 
-} // Error function used for reporting issues
 
 struct Pidkeeper doEncryptInChild(int cnctFD) ;
 

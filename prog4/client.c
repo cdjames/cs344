@@ -7,15 +7,18 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 #include <errno.h>
+#include "utils.h"
 
-void error(const char *msg) { perror(msg); exit(0); } // Error function used for reporting issues
+const int maxBufferLen = 70000;
+const int hdShakeLen = 7;
 
 int main(int argc, char *argv[])
 {
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char buffer[256];
+	char buffer[hdShakeLen];
+	char plaintext[maxBufferLen];
     
 	if (argc < 3) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
 
@@ -34,7 +37,7 @@ int main(int argc, char *argv[])
 	
 	// Connect to server
 	int connected = connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-	printf("connected=%d\n", connected);
+	printf("CLIENT: connected=%d\n", connected);
 	if (connected < 0) // Connect socket to address
 		error("CLIENT: ERROR connecting");
 	// printf("errno = %s\n", strerror(errno));
@@ -51,23 +54,31 @@ int main(int argc, char *argv[])
 	// fgets(buffer, sizeof(buffer) - 1, stdin); // Get input from the user, trunc to buffer - 1 chars, leaving \0
 	// buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 
-	memset(buffer, '\0', 256); // Clear out the buffer array
+	memset(buffer, '\0', hdShakeLen+1); // Clear out the buffer array
 	/* get command name and put it in buffer */
-	int n = snprintf(buffer, 256, "%s", argv[0]);
+
+	int n = snprintf(buffer, hdShakeLen+1, "%s", argv[0]);
 
 	// Send message to server
-	charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
-	printf("charsWritten = %d\n", charsWritten);
-	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+	// charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+	int amountToSend = strlen(buffer);
+	int sendFail;
+	sendFail = sendAll(socketFD, buffer, &amountToSend); // Write to the server
+	printf("amount sent = %d\n", amountToSend);
+	// if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	if (sendFail < 0) error("CLIENT: ERROR writing to socket");
+	if (amountToSend < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
 	// Get return message from server
-	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+	int amountToRecv = sizeof(buffer);
+	int recvFail;
+	memset(buffer, '\0', amountToRecv); // Clear out the buffer again for reuse
+	// charsRead = recv(socketFD, buffer, sizeof(buffer), 0); // Read data from the socket, leaving \0 at end
+	recvFail = recvAll(socketFD, buffer, &amountToRecv); // Read data from the socket, leaving \0 at end
 	// printf("charsread = %d\n", charsRead);
-	if (charsRead < 0) 
+	if (recvFail < 0) 
 		error("CLIENT: ERROR reading from socket");
-	else if (charsRead == 0)
+	else if (amountToRecv == 0)
 		error("CLIENT: no data from server; connection closed");
 	else
 		printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
