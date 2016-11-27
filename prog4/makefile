@@ -1,8 +1,11 @@
-all: server
+all: server client
 
 server: newtypes.o server.o
 	gcc -g -Wall -o server newtypes.o server.o -lm
 
+client: client.c
+	gcc -g -Wall -o client client.c
+	
 server.o: server.c
 	gcc -g -Wall -c server.c
 

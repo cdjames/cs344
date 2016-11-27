@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 	if (connected < 0) // Connect socket to address
 		error("CLIENT: ERROR connecting");
 	// printf("errno = %s\n", strerror(errno));
-	
+
 	// Get return message from server
 	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 	// int aliveCheck;
@@ -46,10 +46,14 @@ int main(int argc, char *argv[])
 	// printf("aliveCheck = %d\n", aliveCheck);
 
 	// Get input message from user
-	printf("CLIENT: Enter text to send to the server, and then hit enter: ");
-	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer array
-	fgets(buffer, sizeof(buffer) - 1, stdin); // Get input from the user, trunc to buffer - 1 chars, leaving \0
-	buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
+	// printf("CLIENT: Enter text to send to the server, and then hit enter: ");
+	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer array
+	// fgets(buffer, sizeof(buffer) - 1, stdin); // Get input from the user, trunc to buffer - 1 chars, leaving \0
+	// buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
+
+	memset(buffer, '\0', 256); // Clear out the buffer array
+	/* get command name and put it in buffer */
+	int n = snprintf(buffer, 256, "%s", argv[0]);
 
 	// Send message to server
 	charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server

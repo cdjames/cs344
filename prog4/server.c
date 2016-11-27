@@ -10,6 +10,11 @@
 #include "newtypes.h"
 
 const int maxConnections = 5;
+const int hdShakeLen = 7;
+const int maxBufferLen = 70000;
+// const char PROG_CODE[] = "opt_enc";
+const char PROG_CODE[] = "./clien";
+
 void error(const char *msg) { 
 	perror(msg); 
 	exit(1); 
@@ -70,7 +75,7 @@ int main(int argc, char *argv[])
 		In each loop, first collect finished processes, then select an active connection, 
 		then process connections */
 	int printerr = 1;
-	while(exitSignal == 0 && pid != 0) { // do until message is "exit"
+	while(1 && pid != 0) { // run forever (while not a child)
 		/* collect finished processes */
 		do {
 			wpid = waitpid(-1, &status, WNOHANG);
@@ -132,22 +137,25 @@ int main(int argc, char *argv[])
 						thePK = doEncryptInChild(i);
 						pid = thePK.pid;
 						exitSignal = thePK.status;
+						if(pid != 0){
+							printf("exitSignal = %d\n", exitSignal);
 
-						/* remove the connection from the master set and decrement connections */
-						FD_CLR(i, &master);
-						numConnections -= 1;
+							/* remove the connection from the master set and decrement connections */
+							FD_CLR(i, &master);
+							numConnections -= 1;
 
-						/* check for need to restart socket (don't do in child [pid==0]) */
-						if(numConnections < maxConnections && pid != 0){
-							/* check whether socket needs to be reopened (don't do in child [pid==0]) */
-							if(!FD_ISSET(listenSocketFD, &master) && pid != 0) {
-								printf("SERVER: resetting the connection\n");
-								/* re-open the socket */
-								listenSocketFD = setUpSocket(&serverAddress, maxConnections);
-		        				/* add it back to the set and make a new max if necessary */
-								FD_SET(listenSocketFD, &master);
-								if(listenSocketFD > fdmax)
-									fdmax = listenSocketFD;
+							/* check for need to restart socket (don't do in child [pid==0]) */
+							if(numConnections < maxConnections){
+								/* check whether socket needs to be reopened (don't do in child [pid==0]) */
+								if(!FD_ISSET(listenSocketFD, &master)) {
+									printf("SERVER: resetting the connection\n");
+									/* re-open the socket */
+									listenSocketFD = setUpSocket(&serverAddress, maxConnections);
+			        				/* add it back to the set and make a new max if necessary */
+									FD_SET(listenSocketFD, &master);
+									if(listenSocketFD > fdmax)
+										fdmax = listenSocketFD;
+								}
 							}
 						}
 	        		}
@@ -192,7 +200,7 @@ int setUpSocket(struct sockaddr_in * serverAddress, int maxConn){
 }
 
 struct Pidkeeper doEncryptInChild(int cnctFD) {
-	// Get the message from the client and display it
+	// Get the message from the client and process it
 	/* set up pipe for communicating failures with parent */
 	int r, 
 		pipeFDs[2],
@@ -207,33 +215,67 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 	/* fork a process */
 	int pid = fork(),
 		status;
-	printf("connection ID is %d\n", cnctFD);
-	/* in child, do the stuff */
+	// printf("connection ID is %d\n", cnctFD);
+
+	/* in child, do the encryption */
 	if(pid == 0) {
 		if(pipe_status != -1){
 			close(pipeFDs[0]); // close input pipe
 			fcntl(pipeFDs[1], F_SETFD, FD_CLOEXEC); // close output pipe on exec
 		}
 
-		char buffer[256];
-		int charsRead;
-		memset(buffer, '\0', 256);
-		charsRead = recv(cnctFD, buffer, 255, 0); // Read the client's message from the socket
+		char hdShakeBuffer[hdShakeLen+1];
+		char ptBuffer[maxBufferLen+1];
+		char keyBuffer[maxBufferLen+1];
+		int charsRead,
+			exitSignal = 0;
+
+		/* read initial handshake message (opt_enc) */
+		memset(hdShakeBuffer, '\0', hdShakeLen);
+		charsRead = recv(cnctFD, hdShakeBuffer, hdShakeLen, 0); // Read the client's message from the socket
 		if (charsRead < 0) 
 			error("SERVER: ERROR reading from socket");
-		printf("SERVER: I received this from the client: \"%s\"\n", buffer);
-		if(strcmp(buffer, "exit") == 0)
+		
+		if(strcmp(hdShakeBuffer, PROG_CODE) == 0)
+			printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
+		else
+			printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
+		/* read the plaintext message*/
+		// memset(buffer, '\0', maxBufferLen+1);
+		// charsRead = recv(cnctFD, ptBuffer, maxBufferLen, 0); // Read the client's message from the socket
+		// if (charsRead < 0) 
+		// 	error("SERVER: ERROR reading from socket");
+		// printf("SERVER: I received this from the client: \"%s\"\n", ptBuffer);
+
+		/* read the key */
+		// memset(keyBuffer, '\0', maxBufferLen+1);
+		// charsRead = recv(cnctFD, keyBuffer, maxBufferLen, 0); // Read the client's message from the socket
+		// if (charsRead < 0) 
+		// 	error("SERVER: ERROR reading from socket");
+		// printf("SERVER: I received this from the client: \"%s\"\n", ptBuffer);
+
+		if(strcmp(hdShakeBuffer, "exit") == 0)
 			exitSignal = 1;
+
+		printf("exitSignal = %d\n", exitSignal);
 		// Send a Success message back to the client
 		charsRead = send(cnctFD, "I am the server, and I got your message", 39, 0); // Send success back
-		if (charsRead < 0) error("SERVER: ERROR writing to socket");
-		close(cnctFD); // Close the existing socket which is connected to the client
+		if (charsRead < 0) 
+			error("SERVER: ERROR writing to socket");
+
+		/* do the encryption */
+
+		/* send the encrypted text back to the client */
+
+		/* Close the existing socket which is connected to the client */
+		close(cnctFD); // 
 
 		/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
 			you will never get to this point if exec occurs, and output pipe will be closed
 			on exec, causing read to receive 0 */
-		if(pipe_status != -1)	
+		if(pipe_status != -1 && exitSignal == 1)	
 			write(pipeFDs[1], &exitSignal, msg_size);
+		// printf("from doEncrypt child, exitSignal = %d\n", exitSignal);
 	} 
 	/* let the parent wait to collect, but don't hang */
 	else if (pid > 0) {
@@ -242,12 +284,13 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 
 		pid_t exitpid;
 		exitpid = waitpid(pid, &status, WNOHANG);
-
+		/* read the message from the child if there is one */
 		if(pipe_status != -1){
 			r = read(pipeFDs[0], &stat_msg, msg_size);
 			if (r > 0)
 				exitSignal = stat_msg;
 		}
+		// printf("from doEncrypt parent, exitSignal = %d\n", exitSignal);
 	}
 
 	return new_PK(pid, exitSignal);
