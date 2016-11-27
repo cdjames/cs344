@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+#include <errno.h>
 
 void error(const char *msg) { perror(msg); exit(0); } // Error function used for reporting issues
 
@@ -32,8 +33,17 @@ int main(int argc, char *argv[])
 	if (socketFD < 0) error("CLIENT: ERROR opening socket");
 	
 	// Connect to server
-	if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to address
+	int connected = connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+	printf("connected=%d\n", connected);
+	if (connected < 0) // Connect socket to address
 		error("CLIENT: ERROR connecting");
+	// printf("errno = %s\n", strerror(errno));
+	
+	// Get return message from server
+	// memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+	// int aliveCheck;
+	// aliveCheck = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0
+	// printf("aliveCheck = %d\n", aliveCheck);
 
 	// Get input message from user
 	printf("CLIENT: Enter text to send to the server, and then hit enter: ");
@@ -43,14 +53,20 @@ int main(int argc, char *argv[])
 
 	// Send message to server
 	charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+	printf("charsWritten = %d\n", charsWritten);
 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
 	if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
 	// Get return message from server
 	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	// printf("charsread = %d\n", charsRead);
+	if (charsRead < 0) 
+		error("CLIENT: ERROR reading from socket");
+	else if (charsRead == 0)
+		error("CLIENT: no data from server; connection closed");
+	else
+		printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
 
 	close(socketFD); // Close the socket
 	return 0;
