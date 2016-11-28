@@ -14,8 +14,8 @@
 const int maxConnections = 5;
 const int hdShakeLen = 7;
 const int maxBufferLen = 70000;
-// const char PROG_CODE[] = "opt_enc";
-const char PROG_CODE[] = "./clien";
+const char PROG_CODE[] = "opt_enc";
+// const char PROG_CODE[] = "./clien";
 
 struct Pidkeeper doEncryptInChild(int cnctFD) ;
 
@@ -217,6 +217,32 @@ int setUpSocket(struct sockaddr_in * serverAddress, int maxConn){
 	return listenSocketFD;
 }
 
+int recvMsg(char * buf, int buf_len, int cnctFD){
+	/* get size of message */
+	int sizeOfString = 0,
+		recvFail,
+		amtToRecv = sizeof(sizeOfString);
+
+	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
+	if (recvFail < 0) {
+		perror("CLIENT: ERROR reading from socket");
+		return -1;
+	}
+	// printf("SERVER: received size\n");
+	/* read the plaintext message */
+	memset(buf, '\0', buf_len);
+	amtToRecv = sizeOfString;
+	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
+	if (recvFail < 0) {
+		perror("SERVER: ERROR reading from socket");
+		return -1;
+	}
+	
+	// printf("SERVER: I received this from the client: \"%s\"\n", buf);
+
+	return 0;
+}
+
 struct Pidkeeper doEncryptInChild(int cnctFD) {
 	// Get the message from the client and process it
 	/* set up pipe for communicating failures with parent */
@@ -246,16 +272,23 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		char ptBuffer[maxBufferLen+1];
 		char keyBuffer[maxBufferLen+1];
 		int charsRead,
-			exitSignal = 0;
+			exitSignal = 0,
+			recvFail,
+			sendFail,
+			amtToRecv;
 
 		/* read initial handshake message (opt_enc) */
-		memset(hdShakeBuffer, '\0', hdShakeLen);
-		charsRead = recv(cnctFD, hdShakeBuffer, hdShakeLen, 0); // Read the client's message from the socket
-		int accepted = 0;
-		int amtToSend = sizeof(accepted);
-		int sendFail;
-		if (charsRead < 0) 
-			error("SERVER: ERROR reading from socket");
+		memset(hdShakeBuffer, '\0', hdShakeLen+1);
+		amtToRecv = hdShakeLen;
+		printf("SERVER: receiving handshake\n");
+		recvFail = recvAll(cnctFD, hdShakeBuffer, &amtToRecv); // Read the client's message from the socket
+		printf("SERVER: handshake = %s\n", hdShakeBuffer);
+		int accepted = 0,
+			amtToSend = sizeof(accepted);
+		if (recvFail < 0) {
+			perror("SERVER: ERROR reading from socket");
+			return new_PK(pid, -1);
+		}
 		
 		if(strcmp(hdShakeBuffer, PROG_CODE) == 0) {
 			accepted = 1;
@@ -263,33 +296,35 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		}
 		else {
 			printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
-
 		}
 		/* send a code accepting or denying the connection */
 		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
 		
 		/* read the plaintext message*/
-		// memset(buffer, '\0', maxBufferLen+1);
-		// charsRead = recv(cnctFD, ptBuffer, maxBufferLen, 0); // Read the client's message from the socket
-		// if (charsRead < 0) 
-		// 	error("SERVER: ERROR reading from socket");
-		// printf("SERVER: I received this from the client: \"%s\"\n", ptBuffer);
+		memset(ptBuffer, '\0', maxBufferLen+1);
+		recvFail = recvMsg(ptBuffer, maxBufferLen+1, cnctFD);
+		if (recvFail < 0) {
+			perror("SERVER: ERROR reading from socket");
+			return new_PK(pid, -1);
+		}
+		printf("SERVER: read: %s\n", ptBuffer);
 
 		/* read the key */
-		// memset(keyBuffer, '\0', maxBufferLen+1);
-		// charsRead = recv(cnctFD, keyBuffer, maxBufferLen, 0); // Read the client's message from the socket
+		memset(keyBuffer, '\0', maxBufferLen+1);
+		recvFail = recvMsg(keyBuffer, maxBufferLen+1, cnctFD);
+		if (recvFail < 0) {
+			perror("SERVER: ERROR reading from socket");
+			return new_PK(pid, -1);
+		}
+		printf("SERVER: read: %s\n", keyBuffer);
+		// // if(strcmp(hdShakeBuffer, "exit") == 0)
+		// // 	exitSignal = 1;
+
+		// // printf("exitSignal = %d\n", exitSignal);
+		// // Send a Success message back to the client
+		// charsRead = send(cnctFD, "I am the server, and I got your message", 39, 0); // Send success back
 		// if (charsRead < 0) 
-		// 	error("SERVER: ERROR reading from socket");
-		// printf("SERVER: I received this from the client: \"%s\"\n", ptBuffer);
-
-		if(strcmp(hdShakeBuffer, "exit") == 0)
-			exitSignal = 1;
-
-		printf("exitSignal = %d\n", exitSignal);
-		// Send a Success message back to the client
-		charsRead = send(cnctFD, "I am the server, and I got your message", 39, 0); // Send success back
-		if (charsRead < 0) 
-			error("SERVER: ERROR writing to socket");
+		// 	error("SERVER: ERROR writing to socket");
 
 		/* do the encryption */
 

@@ -12,6 +12,31 @@
 const int maxBufferLen = 70000;
 const int hdShakeLen = 7;
 
+int sendMsg(char * text, int cnctFD){
+	/* get size of message */
+	int sizeOfString = strlen(text),
+		sendFail,
+		amtToSend = sizeof(sizeOfString);
+
+	sendFail = sendAll(cnctFD, &sizeOfString, &amtToSend); // Read int from the socket
+	if (sendFail < 0) {
+		perror("CLIENT: ERROR reading from socket");
+		return -1;
+	}
+	// printf("CLIENT: sent size\n");
+	/* send the plaintext message */
+	amtToSend = sizeOfString;
+	sendFail = sendAll(cnctFD, text, &amtToSend); // Read the client's message from the socket
+	if (sendFail < 0) {
+		perror("SERVER: ERROR reading from socket");
+		return -1;
+	}
+	
+	// printf("SERVER: I received this from the client: \"%s\"\n", text);
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int socketFD, portNumber, charsWritten, charsRead;
@@ -57,11 +82,12 @@ int main(int argc, char *argv[])
 	memset(buffer, '\0', hdShakeLen+1); // Clear out the buffer array
 	
 	/* get command name and put it in buffer */
-	int n = snprintf(buffer, hdShakeLen+1, "%s", argv[0]);
+	int n = snprintf(buffer, hdShakeLen+1, "%s", "opt_enc");
 
 	// Send command name to server
 	int amountToSend = strlen(buffer);
 	int sendFail;
+	printf("CLIENT: sending handshake\n");
 	sendFail = sendAll(socketFD, buffer, &amountToSend); // Write to the server
 	// printf("amount sent = %d\n", amountToSend);
 	if (sendFail < 0) error("CLIENT: ERROR writing to socket");
@@ -73,20 +99,37 @@ int main(int argc, char *argv[])
 	int amountToRecv = sizeof(accepted);
 	recvFail = recvAll(socketFD, &accepted, &amountToRecv); // Read int from the socket
 	if (recvFail < 0) error("CLIENT: ERROR reading from socket");
-		
+	printf("CLIENT: accepted = %d\n", accepted);
 	if(accepted) {
-		// Get return message from server
-		memset(plaintext, '\0', maxBufferLen); // Clear out plaintext buffer
+		memset(plaintext, '\0', maxBufferLen+1);
+		n = snprintf(plaintext, maxBufferLen+1, "%s", "DUMMY TEXT HERE");
+		/* send plaintext */
+		int sendFail = sendMsg(plaintext, socketFD);
+		if(sendFail < 0){
+			error("CLIENT: ERROR sending plaintext");
+		}
+
+		/* send key */
+		memset(plaintext, '\0', maxBufferLen+1);
+		n = snprintf(plaintext, maxBufferLen+1, "%s", "FRANK SHAT YORE");
+		/* send plaintext */
+		sendFail = sendMsg(plaintext, socketFD);
+		if(sendFail < 0){
+			error("CLIENT: ERROR sending plaintext");
+		}
+
+	// 	// Get return message from server
+		// memset(plaintext, '\0', maxBufferLen); // Clear out plaintext buffer
 		
-		amountToRecv = sizeof(buffer);
-		recvFail = recvAll(socketFD, plaintext, &amountToRecv); // Read data from the socket, leaving \0 at end
-		// printf("charsread = %d\n", charsRead);
-		if (recvFail < 0) 
-			error("CLIENT: ERROR reading from socket");
-		else if (amountToRecv == 0)
-			error("CLIENT: no data from server; connection closed");
-		else
-			printf("CLIENT: I received this from the server: \"%s\"\n", plaintext);
+		// amountToRecv = sizeof(buffer);
+		// recvFail = recvAll(socketFD, plaintext, &amountToRecv); // Read data from the socket, leaving \0 at end
+		// // printf("CLIENT = %d\n", charsRead);
+		// if (recvFail < 0) 
+		// 	error("CLIENT: ERROR reading from socket");
+	// 	else if (amountToRecv == 0)
+	// 		error("CLIENT: no data from server; connection closed");
+	// 	else
+	// 		printf("CLIENT: I received this from the server: \"%s\"\n", plaintext);
 	}
 	close(socketFD); // Close the socket
 	return 0;
