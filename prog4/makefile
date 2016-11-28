@@ -1,13 +1,16 @@
-all: server client
+all: opt_enc_d opt_enc
 
-server: newtypes.o utils.o server.o
-	gcc -g -Wall -o server newtypes.o utils.o server.o -lm
+opt_enc_d: encrypt.o newtypes.o utils.o opt_enc_d.o
+	gcc -g -Wall -o opt_enc_d encrypt.o newtypes.o utils.o opt_enc_d.o -lm
 
-client: client.c utils.o
-	gcc -g -Wall -o client client.c utils.o -lm
+opt_enc: opt_enc.c utils.o
+	gcc -g -Wall -o opt_enc opt_enc.c utils.o -lm
 
-server.o: server.c
-	gcc -g -Wall -c server.c
+opt_enc_d.o: opt_enc_d.c
+	gcc -g -Wall -c opt_enc_d.c
+
+encrypt.o: encrypt.c encrypt.h
+	gcc -g -Wall -c encrypt.c
 
 newtypes.o: newtypes.c newtypes.h 
 	gcc -g -Wall -c newtypes.c 
@@ -16,5 +19,4 @@ utils.o: utils.c utils.h
 	gcc -g -Wall -c utils.c 
 
 clean:
-	rm server.o
-	rm newtypes.o
+	rm *.o

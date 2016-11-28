@@ -55,34 +55,39 @@ int main(int argc, char *argv[])
 	// buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 
 	memset(buffer, '\0', hdShakeLen+1); // Clear out the buffer array
+	
 	/* get command name and put it in buffer */
-
 	int n = snprintf(buffer, hdShakeLen+1, "%s", argv[0]);
 
-	// Send message to server
-	// charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+	// Send command name to server
 	int amountToSend = strlen(buffer);
 	int sendFail;
 	sendFail = sendAll(socketFD, buffer, &amountToSend); // Write to the server
-	printf("amount sent = %d\n", amountToSend);
-	// if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	// printf("amount sent = %d\n", amountToSend);
 	if (sendFail < 0) error("CLIENT: ERROR writing to socket");
 	if (amountToSend < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
-	// Get return message from server
-	int amountToRecv = sizeof(buffer);
+	/* find out if the connection was accepted by receiving 1 or 0 */
+	int accepted = 0;
 	int recvFail;
-	memset(buffer, '\0', amountToRecv); // Clear out the buffer again for reuse
-	// charsRead = recv(socketFD, buffer, sizeof(buffer), 0); // Read data from the socket, leaving \0 at end
-	recvFail = recvAll(socketFD, buffer, &amountToRecv); // Read data from the socket, leaving \0 at end
-	// printf("charsread = %d\n", charsRead);
-	if (recvFail < 0) 
-		error("CLIENT: ERROR reading from socket");
-	else if (amountToRecv == 0)
-		error("CLIENT: no data from server; connection closed");
-	else
-		printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
-
+	int amountToRecv = sizeof(accepted);
+	recvFail = recvAll(socketFD, &accepted, &amountToRecv); // Read int from the socket
+	if (recvFail < 0) error("CLIENT: ERROR reading from socket");
+		
+	if(accepted) {
+		// Get return message from server
+		memset(plaintext, '\0', maxBufferLen); // Clear out plaintext buffer
+		
+		amountToRecv = sizeof(buffer);
+		recvFail = recvAll(socketFD, plaintext, &amountToRecv); // Read data from the socket, leaving \0 at end
+		// printf("charsread = %d\n", charsRead);
+		if (recvFail < 0) 
+			error("CLIENT: ERROR reading from socket");
+		else if (amountToRecv == 0)
+			error("CLIENT: no data from server; connection closed");
+		else
+			printf("CLIENT: I received this from the server: \"%s\"\n", plaintext);
+	}
 	close(socketFD); // Close the socket
 	return 0;
 }

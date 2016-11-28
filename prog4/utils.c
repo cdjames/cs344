@@ -1,6 +1,6 @@
 #include "utils.h"
 
-int sendAll(int socketFD, char * msg, int * amountToSend) {
+int sendAll(int socketFD, void * msg, int * amountToSend) {
 	// figure out how much needs to be sent
 
 	int total = 0; // amount sent
@@ -28,7 +28,7 @@ int sendAll(int socketFD, char * msg, int * amountToSend) {
 		return 0;
 }
 
-int recvAll(int socketFD, char * buf, int * amountToRecv) {
+int recvAll(int socketFD, void * buf, int * amountToRecv) {
 	// figure out how much needs to be sent
 
 	int total = 0; // amount received

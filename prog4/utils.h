@@ -5,10 +5,24 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-int sendAll(int socketFD, char * msg, int * amountToSend);
+/*********************************************************************
+** Description: 
+** Send all bytes or return error
+w/ help from : https://beej.us/guide/bgnet/output/html/multipage/advanced.html
+*********************************************************************/
+int sendAll(int socketFD, void * msg, int * amountToSend);
 
-int recvAll(int socketFD, char * buf, int * amountToRcv);
+/*********************************************************************
+** Description: 
+** Receive all bytes or return error
+w/ help from : https://beej.us/guide/bgnet/output/html/multipage/advanced.html
+*********************************************************************/
+int recvAll(int socketFD, void * buf, int * amountToRcv);
 
+/*********************************************************************
+** Description: 
+** run perror(msg) and exit(1)
+*********************************************************************/
 void error(const char *msg);
 
 #endif

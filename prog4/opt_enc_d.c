@@ -9,6 +9,7 @@
 #include <sys/wait.h> 	// for wait/waitpid
 #include "newtypes.h"
 #include "utils.h"
+#include "encrypt.h"
 
 const int maxConnections = 5;
 const int hdShakeLen = 7;
@@ -19,6 +20,27 @@ const char PROG_CODE[] = "./clien";
 struct Pidkeeper doEncryptInChild(int cnctFD) ;
 
 int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
+
+// int testEncrypt()
+// {
+// 	/* code */
+// 	char msg[5];
+// 	char key[5];
+// 	char out[5];
+
+// 	memset(msg, '\0', sizeof(msg));
+// 	memset(key, '\0', sizeof(key));
+// 	memset(out, '\0', sizeof(out));
+
+// 	int n = snprintf(msg, 5, "%s", "ZEL ");
+// 	n = snprintf(key, 5, "%s", "ZAKZ");
+
+// 	encrypt(msg, key, out);
+
+// 	printf("out = %s\n", out);
+
+// 	return 0;
+// }
 
 int main(int argc, char *argv[])
 {
@@ -229,13 +251,23 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		/* read initial handshake message (opt_enc) */
 		memset(hdShakeBuffer, '\0', hdShakeLen);
 		charsRead = recv(cnctFD, hdShakeBuffer, hdShakeLen, 0); // Read the client's message from the socket
+		int accepted = 0;
+		int amtToSend = sizeof(accepted);
+		int sendFail;
 		if (charsRead < 0) 
 			error("SERVER: ERROR reading from socket");
 		
-		if(strcmp(hdShakeBuffer, PROG_CODE) == 0)
+		if(strcmp(hdShakeBuffer, PROG_CODE) == 0) {
+			accepted = 1;
 			printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
-		else
+		}
+		else {
 			printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
+
+		}
+		/* send a code accepting or denying the connection */
+		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
+		
 		/* read the plaintext message*/
 		// memset(buffer, '\0', maxBufferLen+1);
 		// charsRead = recv(cnctFD, ptBuffer, maxBufferLen, 0); // Read the client's message from the socket
