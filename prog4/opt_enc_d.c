@@ -21,26 +21,7 @@ struct Pidkeeper doEncryptInChild(int cnctFD) ;
 
 int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
 
-// int testEncrypt()
-// {
-// 	/* code */
-// 	char msg[5];
-// 	char key[5];
-// 	char out[5];
 
-// 	memset(msg, '\0', sizeof(msg));
-// 	memset(key, '\0', sizeof(key));
-// 	memset(out, '\0', sizeof(out));
-
-// 	int n = snprintf(msg, 5, "%s", "ZEL ");
-// 	n = snprintf(key, 5, "%s", "ZAKZ");
-
-// 	encrypt(msg, key, out);
-
-// 	printf("out = %s\n", out);
-
-// 	return 0;
-// }
 
 int main(int argc, char *argv[])
 {
@@ -217,31 +198,31 @@ int setUpSocket(struct sockaddr_in * serverAddress, int maxConn){
 	return listenSocketFD;
 }
 
-int recvMsg(char * buf, int buf_len, int cnctFD){
-	/* get size of message */
-	int sizeOfString = 0,
-		recvFail,
-		amtToRecv = sizeof(sizeOfString);
+// int recvMsg(char * buf, int buf_len, int cnctFD){
+// 	/* get size of message */
+// 	int sizeOfString = 0,
+// 		recvFail,
+// 		amtToRecv = sizeof(sizeOfString);
 
-	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
-	if (recvFail < 0) {
-		perror("CLIENT: ERROR reading from socket");
-		return -1;
-	}
-	// printf("SERVER: received size\n");
-	/* read the plaintext message */
-	memset(buf, '\0', buf_len);
-	amtToRecv = sizeOfString;
-	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
-	if (recvFail < 0) {
-		perror("SERVER: ERROR reading from socket");
-		return -1;
-	}
+// 	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
+// 	if (recvFail < 0) {
+// 		perror("CLIENT: ERROR reading from socket");
+// 		return -1;
+// 	}
+// 	// printf("SERVER: received size\n");
+// 	/* read the plaintext message */
+// 	memset(buf, '\0', buf_len);
+// 	amtToRecv = sizeOfString;
+// 	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
+// 	if (recvFail < 0) {
+// 		perror("SERVER: ERROR reading from socket");
+// 		return -1;
+// 	}
 	
-	// printf("SERVER: I received this from the client: \"%s\"\n", buf);
+// 	// printf("SERVER: I received this from the client: \"%s\"\n", buf);
 
-	return 0;
-}
+// 	return 0;
+// }
 
 struct Pidkeeper doEncryptInChild(int cnctFD) {
 	// Get the message from the client and process it
@@ -271,6 +252,7 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		char hdShakeBuffer[hdShakeLen+1];
 		char ptBuffer[maxBufferLen+1];
 		char keyBuffer[maxBufferLen+1];
+		char encryptText[maxBufferLen+1];
 		int charsRead,
 			exitSignal = 0,
 			recvFail,
@@ -305,6 +287,7 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		recvFail = recvMsg(ptBuffer, maxBufferLen+1, cnctFD);
 		if (recvFail < 0) {
 			perror("SERVER: ERROR reading from socket");
+			close(cnctFD); 
 			return new_PK(pid, -1);
 		}
 		printf("SERVER: read: %s\n", ptBuffer);
@@ -314,21 +297,21 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		recvFail = recvMsg(keyBuffer, maxBufferLen+1, cnctFD);
 		if (recvFail < 0) {
 			perror("SERVER: ERROR reading from socket");
+			close(cnctFD); 
 			return new_PK(pid, -1);
 		}
 		printf("SERVER: read: %s\n", keyBuffer);
-		// // if(strcmp(hdShakeBuffer, "exit") == 0)
-		// // 	exitSignal = 1;
-
-		// // printf("exitSignal = %d\n", exitSignal);
-		// // Send a Success message back to the client
-		// charsRead = send(cnctFD, "I am the server, and I got your message", 39, 0); // Send success back
-		// if (charsRead < 0) 
-		// 	error("SERVER: ERROR writing to socket");
 
 		/* do the encryption */
+		memset(encryptText, '\0', maxBufferLen+1);
+		encrypt(ptBuffer, keyBuffer, encryptText);
+		/* add \n to back of encrypted text */
+		encryptText[strlen(encryptText)] = '\n';
+		// printf("encrypted text = %s\n", encryptText);
 
 		/* send the encrypted text back to the client */
+		sendFail = sendMsg(encryptText, cnctFD); // Write to the server
+		if (sendFail < 0) perror("SERVER: ERROR writing encrypted text to socket");
 
 		/* Close the existing socket which is connected to the client */
 		close(cnctFD); // 

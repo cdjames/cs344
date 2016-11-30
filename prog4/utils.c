@@ -28,6 +28,31 @@ int sendAll(int socketFD, void * msg, int * amountToSend) {
 		return 0;
 }
 
+int sendMsg(char * text, int cnctFD){
+	/* get size of message */
+	int sizeOfString = strlen(text),
+		sendFail,
+		amtToSend = sizeof(sizeOfString);
+
+	sendFail = sendAll(cnctFD, &sizeOfString, &amtToSend); // Read int from the socket
+	if (sendFail < 0) {
+		perror("CLIENT: ERROR reading from socket");
+		return -1;
+	}
+	// printf("CLIENT: sent size\n");
+	/* send the plaintext message */
+	amtToSend = sizeOfString;
+	sendFail = sendAll(cnctFD, text, &amtToSend); // Read the client's message from the socket
+	if (sendFail < 0) {
+		perror("SERVER: ERROR reading from socket");
+		return -1;
+	}
+	
+	// printf("SERVER: I received this from the client: \"%s\"\n", text);
+
+	return 0;
+}
+
 int recvAll(int socketFD, void * buf, int * amountToRecv) {
 	// figure out how much needs to be sent
 
@@ -56,4 +81,39 @@ int recvAll(int socketFD, void * buf, int * amountToRecv) {
 		return 0;
 }
 
-void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
+int recvMsg(char * buf, int buf_len, int cnctFD){
+	/* get size of message */
+	int sizeOfString = 0,
+		recvFail,
+		amtToRecv = sizeof(sizeOfString);
+
+	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
+	if (recvFail < 0) {
+		perror("CLIENT: ERROR reading from socket");
+		return -1;
+	}
+	// printf("SERVER: received size\n");
+	/* read the plaintext message */
+	memset(buf, '\0', buf_len);
+	amtToRecv = sizeOfString;
+	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
+	if (recvFail < 0) {
+		perror("SERVER: ERROR reading from socket");
+		return -1;
+	}
+	
+	// printf("SERVER: I received this from the client: \"%s\"\n", buf);
+
+	return 0;
+}
+
+void error(const char *msg) { 
+	perror(msg); 
+	exit(1); 
+} // Error function used for reporting issues
+
+void errorCloseSocket(const char *msg, int socketFD) { 
+	perror(msg); 
+	close(socketFD);
+	exit(1); 
+} // Error function used for reporting issues

@@ -28,7 +28,7 @@ void encrypt(char * instring, char * keystring, char * outstring){
 		pc = instring[i] - ASCII_DIF;
 		if(pc < 0) // must be space since it is 32 - 65
 			pc = TOP_VAL-1;
-		printf("pc = %d\n", pc);
+		// printf("pc = %d\n", pc);
 		kc = keystring[i] - ASCII_DIF;
 		if(kc < 0)
 			kc = TOP_VAL-1;
