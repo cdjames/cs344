@@ -28,8 +28,16 @@ int recvMsg(char * buf, int buf_len, int cnctFD);
 ** Description: 
 ** run perror(msg) and exit(1)
 *********************************************************************/
+void clearString(char * theString, int size);
+
+void printOut(char * outString, int newln);
+
+void printOutError(const char * outString, int newln);
+
 void error(const char *msg);
 
 void errorCloseSocket(const char *msg, int socketFD);
+
+int getRandom(int min, int max);
 
 #endif

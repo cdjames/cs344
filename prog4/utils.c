@@ -36,17 +36,21 @@ int sendMsg(char * text, int cnctFD){
 
 	sendFail = sendAll(cnctFD, &sizeOfString, &amtToSend); // Read int from the socket
 	if (sendFail < 0) {
-		perror("CLIENT: ERROR reading from socket");
+		perror("ERROR reading from socket");
 		return -1;
 	}
+	if (amtToSend < sizeof(sizeOfString)) 
+		printOut("WARNING: Not all data written to socket!", 1);
 	// printf("CLIENT: sent size\n");
 	/* send the plaintext message */
 	amtToSend = sizeOfString;
 	sendFail = sendAll(cnctFD, text, &amtToSend); // Read the client's message from the socket
 	if (sendFail < 0) {
-		perror("SERVER: ERROR reading from socket");
+		perror("ERROR reading from socket");
 		return -1;
 	}
+	if (amtToSend < sizeOfString) 
+		printOut("WARNING: Not all data written to socket!", 1);
 	
 	// printf("SERVER: I received this from the client: \"%s\"\n", text);
 
@@ -89,31 +93,81 @@ int recvMsg(char * buf, int buf_len, int cnctFD){
 
 	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
 	if (recvFail < 0) {
-		perror("CLIENT: ERROR reading from socket");
+		perror("ERROR reading from socket");
 		return -1;
 	}
+	if (amtToRecv < sizeof(sizeOfString)) 
+		printOut("WARNING: Not all data read from socket!", 1);
 	// printf("SERVER: received size\n");
 	/* read the plaintext message */
 	memset(buf, '\0', buf_len);
 	amtToRecv = sizeOfString;
 	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
 	if (recvFail < 0) {
-		perror("SERVER: ERROR reading from socket");
+		perror("ERROR reading from socket");
 		return -1;
 	}
+	if (amtToRecv < sizeOfString) 
+		printOut("WARNING: Not all data read from socket!", 1);
 	
 	// printf("SERVER: I received this from the client: \"%s\"\n", buf);
 
 	return 0;
 }
 
+/*********************************************************************
+** Description: 
+** Automates memset() because 'memset' isn't very descriptive
+*********************************************************************/
+void clearString(char * theString, int size) {
+	memset(theString, '\0', size);
+}
+
+void printOutError(const char * outString, int newln){
+	fputs(outString, stderr);
+	fflush(stderr); // flush the print buffer
+	if(newln){	
+		fputs("\n", stderr);
+		fflush(stderr);
+	}
+}
+
+void printOut(char * outString, int newln){
+	fputs(outString, stdout);
+	fflush(stdout); // flush the print buffer
+	if(newln){	
+		fputs("\n", stdout);
+		fflush(stdout);
+	}
+}
+
 void error(const char *msg) { 
-	perror(msg); 
+	// fprintf(stderr, "%s\n", msg);
+	printOutError(msg, 1);
+	// perror(msg); 
 	exit(1); 
 } // Error function used for reporting issues
 
 void errorCloseSocket(const char *msg, int socketFD) { 
-	perror(msg); 
+	// fprintf(stderr, "%s\n", msg);
+	printOutError(msg, 1);
+	// perror(msg); 
 	close(socketFD);
 	exit(1); 
 } // Error function used for reporting issues
+
+void errorCloseSocketNoExit(const char *msg, int socketFD) { 
+	// perror(msg); 
+	printOutError(msg, 1);
+	close(socketFD);
+} // Error function used for reporting issues
+
+/*********************************************************************
+** Description: 
+** Return a random number
+**
+** Ex: min = 3, max = 9, rand % (7) = 0...6 + 3 = 3...9
+*********************************************************************/
+int getRandom(int min, int max) {
+	return (rand() % (max+1-min) + min);
+}

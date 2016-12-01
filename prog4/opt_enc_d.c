@@ -264,30 +264,35 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		amtToRecv = hdShakeLen;
 		printf("SERVER: receiving handshake\n");
 		recvFail = recvAll(cnctFD, hdShakeBuffer, &amtToRecv); // Read the client's message from the socket
+		if (recvFail < 0) {
+			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
+			return new_PK(pid, -1);
+		}
 		printf("SERVER: handshake = %s\n", hdShakeBuffer);
+
+		/* determine if correct program is connecting */
 		int accepted = 0,
 			amtToSend = sizeof(accepted);
-		if (recvFail < 0) {
-			perror("SERVER: ERROR reading from socket");
+		
+		if(strcmp(hdShakeBuffer, PROG_CODE) == 0)
+			accepted = 1;
+		// 	printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
+		// }
+		// else {
+		// 	printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
+		// }
+		/* send a code accepting or denying the connection */
+		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
+		if (!accepted) {
+			errorCloseSocketNoExit("SERVER: Unrecognized connecting program", cnctFD);
 			return new_PK(pid, -1);
 		}
 		
-		if(strcmp(hdShakeBuffer, PROG_CODE) == 0) {
-			accepted = 1;
-			printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
-		}
-		else {
-			printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
-		}
-		/* send a code accepting or denying the connection */
-		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
-		
-		/* read the plaintext message*/
+		/* correct program connected; read the plaintext message*/
 		memset(ptBuffer, '\0', maxBufferLen+1);
 		recvFail = recvMsg(ptBuffer, maxBufferLen+1, cnctFD);
 		if (recvFail < 0) {
-			perror("SERVER: ERROR reading from socket");
-			close(cnctFD); 
+			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
 			return new_PK(pid, -1);
 		}
 		printf("SERVER: read: %s\n", ptBuffer);
@@ -296,8 +301,7 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		memset(keyBuffer, '\0', maxBufferLen+1);
 		recvFail = recvMsg(keyBuffer, maxBufferLen+1, cnctFD);
 		if (recvFail < 0) {
-			perror("SERVER: ERROR reading from socket");
-			close(cnctFD); 
+			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
 			return new_PK(pid, -1);
 		}
 		printf("SERVER: read: %s\n", keyBuffer);
@@ -311,7 +315,10 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 
 		/* send the encrypted text back to the client */
 		sendFail = sendMsg(encryptText, cnctFD); // Write to the server
-		if (sendFail < 0) perror("SERVER: ERROR writing encrypted text to socket");
+		if (sendFail < 0) {
+			errorCloseSocketNoExit("SERVER: ERROR writing encrypted text to socket", cnctFD);
+			return new_PK(pid, -1);
+		}
 
 		/* Close the existing socket which is connected to the client */
 		close(cnctFD); // 
@@ -336,7 +343,6 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 			if (r > 0)
 				exitSignal = stat_msg;
 		}
-		// printf("from doEncrypt parent, exitSignal = %d\n", exitSignal);
 	}
 
 	return new_PK(pid, exitSignal);

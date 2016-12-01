@@ -55,12 +55,16 @@ void encrypt(char * instring, char * keystring, char * outstring){
 // 	memset(key, '\0', sizeof(key));
 // 	memset(out, '\0', sizeof(out));
 
-// 	int n = snprintf(msg, 5, "%s", "ZEL ");
-// 	n = snprintf(key, 5, "%s", "ZAKZ");
+// 	int n = snprintf(msg, 5, "%s", "ZELA");
 
-// 	encrypt(msg, key, out);
+// 	n = hasValidChars(msg);
 
-// 	printf("out = %s\n", out);
+// 	printf("hasValidChars = %d\n", n);	
+// 	// n = snprintf(key, 5, "%s", "ZAKZ");
+
+// 	// encrypt(msg, key, out);
+
+// 	// printf("out = %s\n", out);
 
 // 	return 0;
 // }
