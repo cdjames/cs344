@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h> 	// for stat()
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
@@ -31,6 +32,14 @@ void checkText(char * text) {
 	int okay = hasValidChars(text);
 	if(!okay){
 		error("CLIENT: plaintext contains bad characters");
+	}
+}
+
+void checkFile(char * file, int socketFD){
+	/* create directory, checking for existence first */
+	struct stat checkfor;
+	if (stat(file, &checkfor) == -1) {
+		errorCloseSocket("Could not open file", socketFD);
 	}
 }
 
@@ -89,20 +98,28 @@ int main(int argc, char *argv[])
 	
 	if (recvFail < 0) 
 		errorCloseSocket("CLIENT: ERROR reading from socket", socketFD);
+	else if(recvFail > 0)
+		errorCloseSocket("CLIENT: Socket closed by server", socketFD);
 	
 	printf("CLIENT: accepted = %d\n", accepted);
 	
 	if(accepted) {
 		FILE * file;
+		FILE * file2;
+
+		/* checking for existence of file first, exit if necessary */
+		checkFile(argv[1], socketFD);
 		file = fopen(argv[1],"r");
 
 		if (file == NULL)
 			errorCloseSocket("No such file", socketFD);
 
 		/* get plaintext */
-		memset(plaintext, '\0', maxBufferLen+1);
+		clearString(plaintext, maxBufferLen+1);
 		if(fgets(plaintext, maxBufferLen, file) == NULL)
 			errorCloseSocket("Could not open file", socketFD);
+
+		fclose(file); // close the file for now; will reuse later
 
 		// n = snprintf(plaintext, maxBufferLen+1, "%s", "DUMMY TEXT HERE");
 
@@ -121,18 +138,26 @@ int main(int argc, char *argv[])
 		}
 
 		/* get key */
-		memset(plaintext, '\0', maxBufferLen+1);
-		n = snprintf(plaintext, maxBufferLen+1, "%s", "SIZLESCRAT MEEK");
+		/* checking for existence of file first, exit if necessary */
+		checkFile(argv[2], socketFD);
+
+		file2 = fopen(argv[2],"r"); // open the key file
+
+		clearString(plaintext, maxBufferLen+1);
+		if(fgets(plaintext, maxBufferLen, file2) == NULL)
+			errorCloseSocket("Could not open file", socketFD);
+		// if()
+			// errorCloseSocket("Could not open file", socketFD);
+		// n = snprintf(plaintext, maxBufferLen+1, "%s", "SIZLESCRAT MEEK");
+		
+		fclose(file2);
+		
+		/* trim newline from string */
+		plaintext[strcspn(plaintext, "\n")] = '\0';
+		int keyLength = strlen(plaintext);
 
 		/* check your text and exit if not okay */
 		checkText(plaintext);
-
-		int keyLength = strlen(plaintext);
-		/* trim newline from string */
-		if(plaintext[keyLength] == '\n'){
-			plaintext[keyLength] = '\0';
-			keyLength -= 1;
-		}
 
 		/* exit if key is too short */
 		if(keyLength < ptLength)
@@ -145,7 +170,7 @@ int main(int argc, char *argv[])
 		}
 
 		/* receive encrypted text */
-		memset(plaintext, '\0', maxBufferLen+1);
+		clearString(plaintext, maxBufferLen+1);
 		recvFail = recvMsg(plaintext, maxBufferLen+1, socketFD);
 		if(recvFail < 0)
 			errorCloseSocket("CLIENT: ERROR reading encrypted text", socketFD);
