@@ -20,7 +20,7 @@ const int hdShakeLen = 7;
 
 int main(int argc, char *argv[])
 {
-	int socketFD, portNumber, charsWritten, charsRead;
+	int socketFD, portNumber;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
 	char buffer[hdShakeLen];

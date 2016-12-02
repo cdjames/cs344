@@ -365,9 +365,8 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		}
 		// printf("SERVER: read: %s\n", keyBuffer);
 
-		/* do the encryption or decryption */
+		/* do the encryption (dec=0) or decryption(dec=1) */
 		memset(encryptText, '\0', maxBufferLen+1);
-		int decrypt = (dec) ? 1 : 0;
 		
 		encrypt(ptBuffer, keyBuffer, encryptText, dec);
 		/* add \n to back of encrypted text */
