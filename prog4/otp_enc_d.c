@@ -18,9 +18,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>		// for file manipulation
 #include <sys/wait.h> 	// for wait/waitpid
-// #include "newtypes.h"
 #include "utils.h"
-// #include "encrypt.h"
 
 const int maxConnections = 5;
 const int hdShakeLen = 7;

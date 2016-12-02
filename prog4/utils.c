@@ -1,5 +1,10 @@
+/*********************************************************************
+** Author: Collin James
+** Date: 12/1/16
+** Description: Utility functions used by otp_* and keygen. See more 
+** info about functions in utils.h
+*********************************************************************/
 #include "utils.h"
-// #include "encrypt.h"
 
 struct Pidkeeper new_PK(pid_t pid, int status)
 {
@@ -351,7 +356,6 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const char
 			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
 			return new_PK(pid, -1);
 		}
-		// printf("SERVER: read: %s\n", ptBuffer);
 
 		/* read the key */
 		memset(keyBuffer, '\0', maxBufferLen+1);
