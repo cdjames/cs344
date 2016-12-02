@@ -1,7 +1,7 @@
 /*********************************************************************
 ** Author: Collin James
 ** Date: 12/1/16
-** Description: Connect to otp_enc_d; send text and key; receive encryption
+** Description: Connect to otp_dec_d; send text and key; receive encryption
 *********************************************************************/
 
 #include <stdio.h>
@@ -37,36 +37,36 @@ int main(int argc, char *argv[])
 	serverAddress.sin_family = AF_INET; // Create a network-capable socket
 	serverAddress.sin_port = htons(portNumber); // Store the port number
 	serverHostInfo = gethostbyname("localhost"); // Convert the machine name into a special form of address
-	if (serverHostInfo == NULL) { fprintf(stderr, "otp_enc: ERROR, no such host\n"); exit(0); }
+	if (serverHostInfo == NULL) { fprintf(stderr, "otp_dec: ERROR, no such host\n"); exit(0); }
 	memcpy((char*)serverHostInfo->h_addr, (char*)&serverAddress.sin_addr.s_addr, serverHostInfo->h_length); // Copy in the address
 
 	// Set up the socket
 	socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
 	if (socketFD < 0) 
-		error2("otp_enc: ERROR opening socket");
+		error2("otp_dec: ERROR opening socket");
 	
 	// Connect to server
 	int connected = connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-	// printf("otp_enc: connected=%d\n", connected);
+	// printf("otp_dec: connected=%d\n", connected);
 	if (connected < 0) // Connect socket to address
-		error2("otp_enc: ERROR connecting");
+		error2("otp_dec: ERROR connecting");
 	// printf("errno = %s\n", strerror(errno));
 
 	clearString(buffer, hdShakeLen+1); // Clear out the buffer array
 	
 	/* get command name and put it in buffer */
-	int n = snprintf(buffer, hdShakeLen+1, "%s", "otp_enc");
+	int n = snprintf(buffer, hdShakeLen+1, "%s", "otp_dec");
 
 	/* Send command name to server */
 	int amountToSend = strlen(buffer);
 	int sendFail;
-	// printf("otp_enc: sending handshake\n");
+	// printf("otp_dec: sending handshake\n");
 	sendFail = sendAll(socketFD, buffer, &amountToSend); // Write to the server
 	
 	if (sendFail < 0) 
-		errorCloseSocket("otp_enc: ERROR connecting to server", socketFD);
+		errorCloseSocket("otp_dec: can only connect to otp_dec_d", socketFD);
 	if (amountToSend < strlen(buffer)) 
-		printOut("otp_enc: WARNING: Not all data written to socket!", 1);
+		printOut("otp_dec: WARNING: Not all data written to socket!", 1);
 
 	/* find out if the connection was accepted by receiving 1 or 0 */
 	int accepted = 0;
@@ -75,11 +75,11 @@ int main(int argc, char *argv[])
 	recvFail = recvAll(socketFD, &accepted, &amountToRecv); // Read int from the socket
 	
 	if (recvFail < 0) 
-		errorCloseSocket("otp_enc: ERROR reading from socket", socketFD);
+		errorCloseSocket("otp_dec: ERROR reading from socket", socketFD);
 	else if(recvFail > 0)
-		errorCloseSocket("otp_enc: Socket closed by server", socketFD);
+		errorCloseSocket("otp_dec: Socket closed by server", socketFD);
 	
-	// printf("otp_enc: accepted = %d\n", accepted);
+	// printf("otp_dec: accepted = %d\n", accepted);
 	
 	if(accepted) {
 		FILE * file;
@@ -92,12 +92,12 @@ int main(int argc, char *argv[])
 		file = fopen(argv[1],"r");
 
 		if (file == NULL)
-			errorCloseSocket("otp_enc: No such file", socketFD);
+			errorCloseSocket("otp_dec: No such file", socketFD);
 
 		/* get plaintext */
 		clearString(plaintext, maxBufferLen+1);
 		if(fgets(plaintext, maxBufferLen, file) == NULL)
-			errorCloseSocket("otp_enc: Could not get contents of file", socketFD);
+			errorCloseSocket("otp_dec: Could not get contents of file", socketFD);
 
 		fclose(file);
 		
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 		/* send plaintext */
 		int sendFail = sendMsg(plaintext, socketFD);
 		if(sendFail < 0){
-			errorCloseSocket("otp_enc: ERROR sending plaintext", socketFD);
+			errorCloseSocket("otp_dec: ERROR sending plaintext", socketFD);
 		}
 
 		/* get key */
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 
 		clearString(plaintext, maxBufferLen+1);
 		if(fgets(plaintext, maxBufferLen, file2) == NULL)
-			errorCloseSocket("otp_enc: Could not get contents of file", socketFD);
+			errorCloseSocket("otp_dec: Could not get contents of file", socketFD);
 		
 		fclose(file2);
 		
@@ -136,21 +136,21 @@ int main(int argc, char *argv[])
 
 		/* exit if key is too short */
 		if(keyLength < ptLength)
-			errorCloseSocket("otp_enc: key is too short", socketFD);
+			errorCloseSocket("otp_dec: key is too short", socketFD);
 
 		/* otherwise send key */
 		sendFail = sendMsg(plaintext, socketFD);
 		if(sendFail < 0){
-			errorCloseSocket("otp_enc: ERROR sending key", socketFD);
+			errorCloseSocket("otp_dec: ERROR sending key", socketFD);
 		}
 
 		/* receive encrypted text; it will have newline already appended */
 		clearString(plaintext, maxBufferLen+1);
 		recvFail = recvMsg(plaintext, maxBufferLen+1, socketFD);
 		if(recvFail < 0)
-			errorCloseSocket("otp_enc: ERROR reading encrypted text", socketFD);
+			errorCloseSocket("otp_dec: ERROR reading encrypted text", socketFD);
 		else if(recvFail > 0)
-			errorCloseSocket("otp_enc: Socket closed by server", socketFD);
+			errorCloseSocket("otp_dec: Socket closed by server", socketFD);
 
 		/* print our encrypted text to standard out */
 		printOut(plaintext, 0);
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
 	}
 	else // connection not accepted
 	{
-		errorCloseSocket("otp_enc: can only connect to otp_enc_d", socketFD);
+		errorCloseSocket("otp_dec: can only connect to otp_dec_d", socketFD);
 	}
 
 	close(socketFD); // Close the socket

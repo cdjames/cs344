@@ -267,7 +267,7 @@ int setUpSocket(struct sockaddr_in * serverAddress, int maxConn){
 	return listenSocketFD;
 }
 
-struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen, int dec) {
+struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const char * PROG_NAME, const int hdShakeLen, int dec) {
 	// Get the message from the client and process it
 	/* set up pipe for communicating failures with parent */
 	const int maxBufferLen = 70000;
@@ -309,7 +309,8 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		// printf("SERVER: receiving handshake\n");
 		recvFail = recvAll(cnctFD, hdShakeBuffer, &amtToRecv); // Read the client's message from the socket
 		if (recvFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
+			printOutError(PROG_NAME, 0);
+			errorCloseSocketNoExit(": ERROR reading from socket", cnctFD);
 			return new_PK(pid, -1);
 		}
 		else if (recvFail > 0){
@@ -330,7 +331,9 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		/* send a code accepting or denying the connection */
 		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
 		if (!accepted) {
-			errorCloseSocketNoExit("SERVER: Unrecognized connecting program", cnctFD);
+			// printOutError(PROG_NAME, 0);
+			// errorCloseSocketNoExit(": Unrecognized connecting program", cnctFD);
+			close(cnctFD); // error in client
 			return new_PK(pid, -1);
 		}
 		
@@ -338,7 +341,8 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		memset(ptBuffer, '\0', maxBufferLen+1);
 		recvFail = recvMsg(ptBuffer, maxBufferLen+1, cnctFD);
 		if (recvFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
+			printOutError(PROG_NAME, 0);
+			errorCloseSocketNoExit(": ERROR reading from socket", cnctFD);
 			return new_PK(pid, -1);
 		}
 		else if (recvFail > 0){
@@ -376,7 +380,8 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		/* send the encrypted text back to the client */
 		sendFail = sendMsg(encryptText, cnctFD); // Write to the server
 		if (sendFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR writing encrypted text to socket", cnctFD);
+			printOutError(PROG_NAME, 0);
+			errorCloseSocketNoExit(": ERROR writing encrypted text to socket", cnctFD);
 			return new_PK(pid, -1);
 		}
 

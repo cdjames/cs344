@@ -2,7 +2,7 @@
 ** Author: Collin James
 ** Date: 12/1/16
 ** Description: Open a listening socket, then do the following:
-1. accept connections from client programs (otp_enc)
+1. accept connections from client programs (otp_dec)
 2. get a text file
 3. get a key
 4. encrypt the text file using the key
@@ -25,8 +25,8 @@
 const int maxConnections = 5;
 const int hdShakeLen = 7;
 const int maxBufferLen = 70000;
-const char PROG_CODE[] = "otp_enc";
-const char PROG_NAME[] = "otp_enc_d";
+const char PROG_CODE[] = "otp_dec";
+const char PROG_NAME[] = "otp_dec_d";
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 		establishedConnectionFD, 
 		portNumber;
 	socklen_t sizeOfClientInfo;
-	struct sockaddr_in otp_enc_dAddress, clientAddress;
+	struct sockaddr_in otp_dec_dAddress, clientAddress;
 	
 	/* keeping track of pids and connections */
 	int exitSignal = 0,
@@ -60,15 +60,15 @@ int main(int argc, char *argv[])
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
 
-	/*Set up the address struct for this process (the otp_enc_d)*/
-	memset((char *)&otp_enc_dAddress, '\0', sizeof(otp_enc_dAddress)); // Clear out the address struct
+	/*Set up the address struct for this process (the otp_dec_d)*/
+	memset((char *)&otp_dec_dAddress, '\0', sizeof(otp_dec_dAddress)); // Clear out the address struct
 	portNumber = atoi(argv[1]); // Get the port number, convert to an integer from a string
-	otp_enc_dAddress.sin_family = AF_INET; // Create a network-capable socket
-	otp_enc_dAddress.sin_port = htons(portNumber); // Store the port number
-	otp_enc_dAddress.sin_addr.s_addr = INADDR_ANY; // Any address is allowed for connection to this process
+	otp_dec_dAddress.sin_family = AF_INET; // Create a network-capable socket
+	otp_dec_dAddress.sin_port = htons(portNumber); // Store the port number
+	otp_dec_dAddress.sin_addr.s_addr = INADDR_ANY; // Any address is allowed for connection to this process
 
 	// Set up the socket and start listen()
-	listenSocketFD = setUpSocket(&otp_enc_dAddress, maxConnections);
+	listenSocketFD = setUpSocket(&otp_dec_dAddress, maxConnections);
 
 	/* add listenSocketFD to master set (for select); set the max fd to be the listener */
 	FD_SET(listenSocketFD, &master);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 
 		/* do your select and make sure there are no errors */
 		if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
-            printOutError("otp_enc_d: select failed", 1);
+            printOutError("otp_dec_d: select failed", 1);
         }
         else { // no errors, look for new connections or data
         	
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 							setsockopt( establishedConnectionFD, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 							
 							if (establishedConnectionFD < 0) 
-								error("otp_enc_d: ERROR on accept");
+								error("otp_dec_d: ERROR on accept");
 							/* if no error, add new connection to your set */
 							else {
 								numConnections += 1;
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
         			else {
 	        			// printf("getting data\n");
 	        			/* fork a process with doEncrypt... encrypt here */
-						thePK = doEncryptInChild(i, PROG_CODE, PROG_NAME, hdShakeLen, 0);
+						thePK = doEncryptInChild(i, PROG_CODE, PROG_NAME, hdShakeLen, 1);
 						pid = thePK.pid;
 						exitSignal = thePK.status;
 						if(pid != 0){
@@ -158,9 +158,9 @@ int main(int argc, char *argv[])
 							if(numConnections < maxConnections){
 								/* check whether socket needs to be reopened (don't do in child [pid==0]) */
 								if(!FD_ISSET(listenSocketFD, &master)) {
-									// printf("otp_enc_d: resetting the connection\n");
+									// printf("otp_dec_d: resetting the connection\n");
 									/* re-open the socket */
-									listenSocketFD = setUpSocket(&otp_enc_dAddress, maxConnections);
+									listenSocketFD = setUpSocket(&otp_dec_dAddress, maxConnections);
 			        				/* add it back to the set and make a new max if necessary */
 									FD_SET(listenSocketFD, &master);
 									if(listenSocketFD > fdmax)

@@ -82,7 +82,7 @@ void checkText(char * text, int socketFD, char * fname);
 *********************************************************************/
 void checkFile(char * file, int socketFD);
 
-struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen, int dec);
+struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const char * PROG_NAME, const int hdShakeLen, int dec);
 
 int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
 
