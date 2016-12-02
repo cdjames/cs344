@@ -4,9 +4,28 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h> 	// for stat()
+#include <fcntl.h>		// for file manipulation
+#include <sys/wait.h> 	// for wait/waitpid
+#include <netinet/in.h>
+// #include "newtypes.h"
+// #include "encrypt.h"
 
 #ifndef UTILS_H
 #define UTILS_H
+
+struct Pidkeeper
+{
+	pid_t pid;
+	int status;
+};
+
+/*********************************************************************
+** Description: 
+** Create a new Pidkeeper with a pid and status
+*********************************************************************/
+struct Pidkeeper new_PK(pid_t pid, int status);
 
 /*********************************************************************
 ** Description: 
@@ -44,5 +63,38 @@ void errorCloseSocket(const char *msg, int socketFD);
 void errorCloseSocketNoExit(const char *msg, int socketFD);
 
 int getRandom(int min, int max);
+
+/*********************************************************************
+** Description: 
+** Check for invalid characters and return 1 if found; otherwise 0
+*********************************************************************/
+int hasValidChars(char * text);
+
+/*********************************************************************
+** Description: 
+** Check text for invalid characters and exit if found (uses hasValidChars) 
+*********************************************************************/
+void checkText(char * text, int socketFD);
+
+/*********************************************************************
+** Description: 
+** Check for existence of file and exit if not found
+*********************************************************************/
+void checkFile(char * file, int socketFD);
+
+struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen);
+
+int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
+
+void sendErrorToParent(int pipe_status, int pipeFD, long int msg_size);
+
+/*********************************************************************
+** Description: 
+** Return a modulus
+w/ help: http://stackoverflow.com/questions/4003232/how-to-code-a-modulo-operator-in-c-c-obj-c-that-handles-negative-numbers#4003287
+*********************************************************************/
+int mod (int x, int y);
+
+void encrypt(char * instring, char * keystring, char * outstring);
 
 #endif

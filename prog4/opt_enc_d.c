@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>		// for file manipulation
 #include <sys/wait.h> 	// for wait/waitpid
-#include "newtypes.h"
+// #include "newtypes.h"
 #include "utils.h"
 #include "encrypt.h"
 
@@ -15,24 +15,12 @@ const int maxConnections = 5;
 const int hdShakeLen = 7;
 const int maxBufferLen = 70000;
 const char PROG_CODE[] = "opt_enc";
-// const char PROG_CODE[] = "./clien";
-
-struct Pidkeeper doEncryptInChild(int cnctFD) ;
-
-int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
-
-void sendErrorToParent(int pipe_status, int pipeFD, long int msg_size){
-	if(pipe_status != -1){
-		int exitSignal = 1;	
-		write(pipeFD, &exitSignal, msg_size);
-	}
-}
 
 int main(int argc, char *argv[])
 {
 	/* Check usage & args */
 	if (argc < 2) { 
-		fprintf(stderr,"SERVER: USAGE: %s port\n", argv[0]); 
+		fprintf(stderr,"USAGE: %s port\n", argv[0]); 
 		exit(1); 
 	}
 
@@ -78,7 +66,7 @@ int main(int argc, char *argv[])
 	/* loop until exitSignal is received (change to endless loop in final code) 
 		In each loop, first collect finished processes, then select an active connection, 
 		then process connections */
-	int printerr = 1;
+	int printerr = 0;
 	while(1 && pid != 0) { // run forever (while not a child)
 		/* collect finished processes */
 		do {
@@ -146,11 +134,11 @@ int main(int argc, char *argv[])
         			else {
 	        			// printf("getting data\n");
 	        			/* fork a process with doEncrypt... encrypt here */
-						thePK = doEncryptInChild(i);
+						thePK = doEncryptInChild(i, PROG_CODE, hdShakeLen);
 						pid = thePK.pid;
 						exitSignal = thePK.status;
 						if(pid != 0){
-							printf("exitSignal = %d\n", exitSignal);
+							// printf("exitSignal = %d\n", exitSignal);
 
 							/* remove the connection from the master set and decrement connections */
 							FD_CLR(i, &master);
@@ -160,7 +148,7 @@ int main(int argc, char *argv[])
 							if(numConnections < maxConnections){
 								/* check whether socket needs to be reopened (don't do in child [pid==0]) */
 								if(!FD_ISSET(listenSocketFD, &master)) {
-									printf("SERVER: resetting the connection\n");
+									// printf("SERVER: resetting the connection\n");
 									/* re-open the socket */
 									listenSocketFD = setUpSocket(&serverAddress, maxConnections);
 			        				/* add it back to the set and make a new max if necessary */
@@ -190,190 +178,3 @@ int main(int argc, char *argv[])
 	return 0; 
 }
 
-int setUpSocket(struct sockaddr_in * serverAddress, int maxConn){
-	// Set up the socket
-	int yes = 1;
-	int listenSocketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
-	if (listenSocketFD < 0) 
-		error("SERVER: ERROR opening socket");
-
-	// reuse previously used ports before they are released by OS (from beej.us) -- doesn't work
-    setsockopt(listenSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-
-	// Enable the socket to begin listening
-	if (bind(listenSocketFD, (struct sockaddr *)serverAddress, sizeof(*serverAddress)) < 0) // Connect socket to port
-		error("SERVER: ERROR on binding");
-	
-	int listening;
-	listening = listen(listenSocketFD, maxConn); // Flip the socket on - it can now receive up to 5 connections
-	if(listening < 0)
-		error("SERVER: failed to listen");
-
-	return listenSocketFD;
-}
-
-// int recvMsg(char * buf, int buf_len, int cnctFD){
-// 	/* get size of message */
-// 	int sizeOfString = 0,
-// 		recvFail,
-// 		amtToRecv = sizeof(sizeOfString);
-
-// 	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
-// 	if (recvFail < 0) {
-// 		perror("CLIENT: ERROR reading from socket");
-// 		return -1;
-// 	}
-// 	// printf("SERVER: received size\n");
-// 	/* read the plaintext message */
-// 	memset(buf, '\0', buf_len);
-// 	amtToRecv = sizeOfString;
-// 	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
-// 	if (recvFail < 0) {
-// 		perror("SERVER: ERROR reading from socket");
-// 		return -1;
-// 	}
-	
-// 	// printf("SERVER: I received this from the client: \"%s\"\n", buf);
-
-// 	return 0;
-// }
-
-struct Pidkeeper doEncryptInChild(int cnctFD) {
-	// Get the message from the client and process it
-	/* set up pipe for communicating failures with parent */
-	int r, 
-		pipeFDs[2],
-		exitSignal = 0, // send this data to parent
-		stat_msg,	// receive data here
-		pipe_status; // save status of pipe
-	long int msg_size = sizeof(exitSignal);
-
-	if( (pipe_status = pipe(pipeFDs)) == -1)
-		perror("failed to set up pipe");
-
-	/* fork a process */
-	int pid = fork(),
-		status;
-	// printf("connection ID is %d\n", cnctFD);
-
-	/* in child, do the encryption */
-	if(pid == 0) {
-		if(pipe_status != -1){
-			close(pipeFDs[0]); // close input pipe
-			fcntl(pipeFDs[1], F_SETFD, FD_CLOEXEC); // close output pipe on exec
-		}
-
-		char hdShakeBuffer[hdShakeLen+1];
-		char ptBuffer[maxBufferLen+1];
-		char keyBuffer[maxBufferLen+1];
-		char encryptText[maxBufferLen+1];
-		int charsRead,
-			exitSignal = 0,
-			recvFail,
-			sendFail,
-			amtToRecv;
-
-		/* read initial handshake message (opt_enc) */
-		memset(hdShakeBuffer, '\0', hdShakeLen+1);
-		amtToRecv = hdShakeLen;
-		printf("SERVER: receiving handshake\n");
-		recvFail = recvAll(cnctFD, hdShakeBuffer, &amtToRecv); // Read the client's message from the socket
-		if (recvFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
-			return new_PK(pid, -1);
-		}
-		else if (recvFail > 0){
-			errorCloseSocketNoExit("Socket closed by client", cnctFD);
-			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
-			return new_PK(pid, -1);
-		}
-		printf("SERVER: handshake = %s\n", hdShakeBuffer);
-
-		/* determine if correct program is connecting */
-		int accepted = 0,
-			amtToSend = sizeof(accepted);
-		
-		if(strcmp(hdShakeBuffer, PROG_CODE) == 0)
-			accepted = 1; // accept the server
-		// 	printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
-		// }
-		// else {
-		// 	printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
-		// }
-
-		/* send a code accepting or denying the connection */
-		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
-		if (!accepted) {
-			errorCloseSocketNoExit("SERVER: Unrecognized connecting program", cnctFD);
-			return new_PK(pid, -1);
-		}
-		
-		/* correct program connected; read the plaintext message*/
-		memset(ptBuffer, '\0', maxBufferLen+1);
-		recvFail = recvMsg(ptBuffer, maxBufferLen+1, cnctFD);
-		if (recvFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
-			return new_PK(pid, -1);
-		}
-		else if (recvFail > 0){
-			errorCloseSocketNoExit("Socket closed by client", cnctFD);
-			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
-			return new_PK(pid, -1);
-		}
-		printf("SERVER: read: %s\n", ptBuffer);
-
-		/* read the key */
-		memset(keyBuffer, '\0', maxBufferLen+1);
-		recvFail = recvMsg(keyBuffer, maxBufferLen+1, cnctFD);
-		if (recvFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
-			return new_PK(pid, -1);
-		}
-		else if (recvFail > 0){
-			errorCloseSocketNoExit("Socket closed by client", cnctFD);
-			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
-			return new_PK(pid, -1);
-		}
-		printf("SERVER: read: %s\n", keyBuffer);
-
-		/* do the encryption */
-		memset(encryptText, '\0', maxBufferLen+1);
-		encrypt(ptBuffer, keyBuffer, encryptText);
-		/* add \n to back of encrypted text */
-		encryptText[strlen(encryptText)] = '\n';
-		// printf("encrypted text = %s\n", encryptText);
-
-		/* send the encrypted text back to the client */
-		sendFail = sendMsg(encryptText, cnctFD); // Write to the server
-		if (sendFail < 0) {
-			errorCloseSocketNoExit("SERVER: ERROR writing encrypted text to socket", cnctFD);
-			return new_PK(pid, -1);
-		}
-
-		/* Close the existing socket which is connected to the client */
-		close(cnctFD); // 
-
-		/* send error status message to parent, i.e. 1 (sending int disguised as void *) 
-			you will never get to this point if exec occurs, and output pipe will be closed
-			on exec, causing read to receive 0 */
-		if(pipe_status != -1 && exitSignal == 1)	
-			write(pipeFDs[1], &exitSignal, msg_size);
-		// printf("from doEncrypt child, exitSignal = %d\n", exitSignal);
-	} 
-	/* let the parent wait to collect, but don't hang */
-	else if (pid > 0) {
-		if(pipe_status != -1)
-			close(pipeFDs[1]); // close output pipe
-
-		pid_t exitpid;
-		exitpid = waitpid(pid, &status, WNOHANG);
-		/* read the message from the child if there is one */
-		if(pipe_status != -1){
-			r = read(pipeFDs[0], &stat_msg, msg_size);
-			if (r > 0)
-				exitSignal = stat_msg;
-		}
-	}
-
-	return new_PK(pid, exitSignal);
-}

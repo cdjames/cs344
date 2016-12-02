@@ -1,9 +1,14 @@
+/*********************************************************************
+** Author: Collin James
+** Date: 12/1/16
+** Description: Connect to opt_enc_d; send text and key; receive encryption
+*********************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h> 	// for stat()
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
@@ -13,36 +18,6 @@
 const int maxBufferLen = 70000;
 const int hdShakeLen = 7;
 
-int hasValidChars(char * text){
-	int textlen = strlen(text),
-		i;
-
-	for (i = 0; text[i] != '\0' || i < textlen; i++)
-	{
-		// printf("char is %d\n", text[i]);
-		if( text[i] != ' ' && (text[i] < 'A' || text[i] > 'Z') )
-			return 0;
-	}
-
-	/* all characters checked out! */
-	return 1;
-}
-
-void checkText(char * text) {
-	int okay = hasValidChars(text);
-	if(!okay){
-		error("CLIENT: plaintext contains bad characters");
-	}
-}
-
-void checkFile(char * file, int socketFD){
-	/* create directory, checking for existence first */
-	struct stat checkfor;
-	if (stat(file, &checkfor) == -1) {
-		errorCloseSocket("Could not open file", socketFD);
-	}
-}
-
 int main(int argc, char *argv[])
 {
 	int socketFD, portNumber, charsWritten, charsRead;
@@ -51,7 +26,10 @@ int main(int argc, char *argv[])
 	char buffer[hdShakeLen];
 	char plaintext[maxBufferLen];
     
-	if (argc < 4) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
+	if (argc < 4) { 
+		fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); 
+		exit(1); 
+	} // Check usage & args
 
 	// Set up the server address struct
 	memset((char*)&serverAddress, '\0', sizeof(serverAddress)); // Clear out the address struct
@@ -59,22 +37,22 @@ int main(int argc, char *argv[])
 	serverAddress.sin_family = AF_INET; // Create a network-capable socket
 	serverAddress.sin_port = htons(portNumber); // Store the port number
 	serverHostInfo = gethostbyname("localhost"); // Convert the machine name into a special form of address
-	if (serverHostInfo == NULL) { fprintf(stderr, "CLIENT: ERROR, no such host\n"); exit(0); }
+	if (serverHostInfo == NULL) { fprintf(stderr, "opt_enc: ERROR, no such host\n"); exit(0); }
 	memcpy((char*)serverHostInfo->h_addr, (char*)&serverAddress.sin_addr.s_addr, serverHostInfo->h_length); // Copy in the address
 
 	// Set up the socket
 	socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
 	if (socketFD < 0) 
-		error2("CLIENT: ERROR opening socket");
+		error2("opt_enc: ERROR opening socket");
 	
 	// Connect to server
 	int connected = connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-	printf("CLIENT: connected=%d\n", connected);
+	// printf("opt_enc: connected=%d\n", connected);
 	if (connected < 0) // Connect socket to address
-		error2("CLIENT: ERROR connecting");
+		error2("opt_enc: ERROR connecting");
 	// printf("errno = %s\n", strerror(errno));
 
-	memset(buffer, '\0', hdShakeLen+1); // Clear out the buffer array
+	clearString(buffer, hdShakeLen+1); // Clear out the buffer array
 	
 	/* get command name and put it in buffer */
 	int n = snprintf(buffer, hdShakeLen+1, "%s", "opt_enc");
@@ -82,13 +60,13 @@ int main(int argc, char *argv[])
 	/* Send command name to server */
 	int amountToSend = strlen(buffer);
 	int sendFail;
-	printf("CLIENT: sending handshake\n");
+	// printf("opt_enc: sending handshake\n");
 	sendFail = sendAll(socketFD, buffer, &amountToSend); // Write to the server
-	// printf("amount sent = %d\n", amountToSend);
+	
 	if (sendFail < 0) 
-		errorCloseSocket("CLIENT: ERROR writing to socket", socketFD);
+		errorCloseSocket("opt_enc: ERROR writing to socket", socketFD);
 	if (amountToSend < strlen(buffer)) 
-		printOut("CLIENT: WARNING: Not all data written to socket!", 1);
+		printOut("opt_enc: WARNING: Not all data written to socket!", 1);
 
 	/* find out if the connection was accepted by receiving 1 or 0 */
 	int accepted = 0;
@@ -97,11 +75,11 @@ int main(int argc, char *argv[])
 	recvFail = recvAll(socketFD, &accepted, &amountToRecv); // Read int from the socket
 	
 	if (recvFail < 0) 
-		errorCloseSocket("CLIENT: ERROR reading from socket", socketFD);
+		errorCloseSocket("opt_enc: ERROR reading from socket", socketFD);
 	else if(recvFail > 0)
-		errorCloseSocket("CLIENT: Socket closed by server", socketFD);
+		errorCloseSocket("opt_enc: Socket closed by server", socketFD);
 	
-	printf("CLIENT: accepted = %d\n", accepted);
+	// printf("opt_enc: accepted = %d\n", accepted);
 	
 	if(accepted) {
 		FILE * file;
@@ -109,6 +87,8 @@ int main(int argc, char *argv[])
 
 		/* checking for existence of file first, exit if necessary */
 		checkFile(argv[1], socketFD);
+		
+		/* open the file and check for errors */
 		file = fopen(argv[1],"r");
 
 		if (file == NULL)
@@ -117,38 +97,33 @@ int main(int argc, char *argv[])
 		/* get plaintext */
 		clearString(plaintext, maxBufferLen+1);
 		if(fgets(plaintext, maxBufferLen, file) == NULL)
-			errorCloseSocket("Could not open file", socketFD);
+			errorCloseSocket("Could not get contents of file", socketFD);
 
-		fclose(file); // close the file for now; will reuse later
-
-		// n = snprintf(plaintext, maxBufferLen+1, "%s", "DUMMY TEXT HERE");
-
+		fclose(file);
 		
 		/* trim newline from string */
 		plaintext[strcspn(plaintext, "\n")] = '\0';
+		/* save length of plaintext */
 		int ptLength = strlen(plaintext);
 
 		/* check your text and exit if not okay */
-		checkText(plaintext);
+		checkText(plaintext, socketFD);
 
 		/* send plaintext */
 		int sendFail = sendMsg(plaintext, socketFD);
 		if(sendFail < 0){
-			errorCloseSocket("CLIENT: ERROR sending plaintext", socketFD);
+			errorCloseSocket("opt_enc: ERROR sending plaintext", socketFD);
 		}
 
 		/* get key */
-		/* checking for existence of file first, exit if necessary */
+		/* check for existence of file first, exit if necessary */
 		checkFile(argv[2], socketFD);
 
 		file2 = fopen(argv[2],"r"); // open the key file
 
 		clearString(plaintext, maxBufferLen+1);
 		if(fgets(plaintext, maxBufferLen, file2) == NULL)
-			errorCloseSocket("Could not open file", socketFD);
-		// if()
-			// errorCloseSocket("Could not open file", socketFD);
-		// n = snprintf(plaintext, maxBufferLen+1, "%s", "SIZLESCRAT MEEK");
+			errorCloseSocket("Could not get contents of file", socketFD);
 		
 		fclose(file2);
 		
@@ -156,24 +131,26 @@ int main(int argc, char *argv[])
 		plaintext[strcspn(plaintext, "\n")] = '\0';
 		int keyLength = strlen(plaintext);
 
-		/* check your text and exit if not okay */
-		checkText(plaintext);
+		/* check your key and exit if not okay */
+		checkText(plaintext, socketFD);
 
 		/* exit if key is too short */
 		if(keyLength < ptLength)
-			errorCloseSocket("CLIENT: key is too short", socketFD);
+			errorCloseSocket("opt_enc: key is too short", socketFD);
 
 		/* otherwise send key */
 		sendFail = sendMsg(plaintext, socketFD);
 		if(sendFail < 0){
-			errorCloseSocket("CLIENT: ERROR sending key", socketFD);
+			errorCloseSocket("opt_enc: ERROR sending key", socketFD);
 		}
 
-		/* receive encrypted text */
+		/* receive encrypted text; it will have newline already appended */
 		clearString(plaintext, maxBufferLen+1);
 		recvFail = recvMsg(plaintext, maxBufferLen+1, socketFD);
 		if(recvFail < 0)
-			errorCloseSocket("CLIENT: ERROR reading encrypted text", socketFD);
+			errorCloseSocket("opt_enc: ERROR reading encrypted text", socketFD);
+		else if(recvFail > 0)
+			errorCloseSocket("opt_enc: Socket closed by server", socketFD);
 
 		/* print our encrypted text to standard out */
 		printOut(plaintext, 0);
@@ -184,3 +161,5 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
+
