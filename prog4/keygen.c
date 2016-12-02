@@ -41,7 +41,7 @@ int main(int argc, char const *argv[])
 
 	key[strlen(key)] = '\n'; // append newline
 
-	printOut(key, 1);
+	printOut(key, 0); // print with no extra newline
 
 	return 0;
 }

@@ -1,13 +1,13 @@
-all: opt_enc_d opt_enc keygen
+all: otp_enc_d otp_enc keygen
 
-opt_enc_d: utils.o opt_enc_d.o 
-	gcc -g -Wall -o opt_enc_d  utils.o opt_enc_d.o -lm
+otp_enc_d: utils.o otp_enc_d.o 
+	gcc -g -Wall -o otp_enc_d  utils.o otp_enc_d.o -lm
 
-opt_enc: opt_enc.c utils.o
-	gcc -g -Wall -o opt_enc opt_enc.c utils.o -lm
+otp_enc: otp_enc.c utils.o
+	gcc -g -Wall -o otp_enc otp_enc.c utils.o -lm
 
-opt_enc_d.o: opt_enc_d.c
-	gcc -g -Wall -c opt_enc_d.c
+otp_enc_d.o: otp_enc_d.c
+	gcc -g -Wall -c otp_enc_d.c
 
 keygen: keygen.c utils.o
 	gcc -g -Wall -o keygen keygen.c utils.o -lm
@@ -25,4 +25,4 @@ clean:
 	rm *.o
 
 cleanall: clean
-	rm keygen opt_enc opt_enc_d 
+	rm keygen otp_enc otp_enc_d 

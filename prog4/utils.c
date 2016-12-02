@@ -227,10 +227,12 @@ int hasValidChars(char * text){
 	return 1;
 }
 
-void checkText(char * text, int socketFD) {
+void checkText(char * text, int socketFD, char * fname) {
 	int okay = hasValidChars(text);
 	if(!okay){
-		errorCloseSocket("opt_enc: plaintext contains bad characters", socketFD);
+		printOutError("opt_enc: ", 0);
+		printOutError(fname, 0);
+		errorCloseSocket(" contains bad characters", socketFD);
 	}
 }
 
@@ -265,7 +267,7 @@ int setUpSocket(struct sockaddr_in * serverAddress, int maxConn){
 	return listenSocketFD;
 }
 
-struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen) {
+struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen, int dec) {
 	// Get the message from the client and process it
 	/* set up pipe for communicating failures with parent */
 	const int maxBufferLen = 70000;
@@ -296,8 +298,7 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		char ptBuffer[maxBufferLen+1];
 		char keyBuffer[maxBufferLen+1];
 		char encryptText[maxBufferLen+1];
-		int charsRead,
-			exitSignal = 0,
+		int exitSignal = 0,
 			recvFail,
 			sendFail,
 			amtToRecv;
@@ -325,11 +326,6 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		
 		if(strcmp(hdShakeBuffer, PROG_CODE) == 0)
 			accepted = 1; // accept the server
-		// 	printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
-		// }
-		// else {
-		// 	printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
-		// }
 
 		/* send a code accepting or denying the connection */
 		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
@@ -369,9 +365,11 @@ struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int 
 		}
 		// printf("SERVER: read: %s\n", keyBuffer);
 
-		/* do the encryption */
+		/* do the encryption or decryption */
 		memset(encryptText, '\0', maxBufferLen+1);
-		encrypt(ptBuffer, keyBuffer, encryptText);
+		int decrypt = (dec) ? 1 : 0;
+		
+		encrypt(ptBuffer, keyBuffer, encryptText, dec);
 		/* add \n to back of encrypted text */
 		encryptText[strlen(encryptText)] = '\n';
 		// printf("encrypted text = %s\n", encryptText);
@@ -427,7 +425,7 @@ int mod (int x, int y)
    return themod;
 }
 
-void encrypt(char * instring, char * keystring, char * outstring){
+void encrypt(char * instring, char * keystring, char * outstring, int dec){
 	const int ASCII_DIF = 65;
 	const int SPACE_VAL = 32;
 	const int TOP_VAL = 27;
@@ -445,10 +443,16 @@ void encrypt(char * instring, char * keystring, char * outstring){
 		kc = keystring[i] - ASCII_DIF;
 		if(kc < 0)
 			kc = TOP_VAL-1;
-		/* get an intermediate value for clarity */
-		ic = pc + kc;
+		/* get an intermediate value for clarity (encrypt or decrypt) */
+		ic = (!dec) ? pc + kc : pc - kc;
+		
 		/* your encrypted int will be modulo of ic if less than top*/
-		ec = (ic >= TOP_VAL) ? ic-TOP_VAL : mod(ic, TOP_VAL);
+		if(!dec)
+			ec = (ic >= TOP_VAL) ? ic-TOP_VAL : mod(ic, TOP_VAL);
+		/* your decrypted int will be modulo of ic if greater than zero*/
+		else
+			ec = (ic < 0) ? ic+TOP_VAL : mod(ic, TOP_VAL);
+
 		if(ec == TOP_VAL-1)
 			ec = SPACE_VAL - ASCII_DIF;
 

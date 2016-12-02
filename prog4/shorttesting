@@ -1,0 +1,8 @@
+#!/bin/bash
+./keygen 70000 > key70000
+encport=57007
+./otp_enc plaintext1 key70000 $encport > ciphertext1 &
+./otp_enc plaintext2 key70000 $encport > ciphertext2 &
+./otp_enc plaintext3 key70000 $encport > ciphertext3 &
+./otp_enc plaintext4 key70000 $encport > ciphertext4 &
+./otp_enc plaintext5 key70000 $encport > ciphertext5 &

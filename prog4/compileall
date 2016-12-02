@@ -1,0 +1,3 @@
+#!/bin/bash
+make
+chmod a+x otp_enc otp_enc_d keygen

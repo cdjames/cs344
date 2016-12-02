@@ -74,7 +74,7 @@ int hasValidChars(char * text);
 ** Description: 
 ** Check text for invalid characters and exit if found (uses hasValidChars) 
 *********************************************************************/
-void checkText(char * text, int socketFD);
+void checkText(char * text, int socketFD, char * fname);
 
 /*********************************************************************
 ** Description: 
@@ -82,7 +82,7 @@ void checkText(char * text, int socketFD);
 *********************************************************************/
 void checkFile(char * file, int socketFD);
 
-struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen);
+struct Pidkeeper doEncryptInChild(int cnctFD, const char * PROG_CODE, const int hdShakeLen, int dec);
 
 int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
 
@@ -95,6 +95,6 @@ w/ help: http://stackoverflow.com/questions/4003232/how-to-code-a-modulo-operato
 *********************************************************************/
 int mod (int x, int y);
 
-void encrypt(char * instring, char * keystring, char * outstring);
+void encrypt(char * instring, char * keystring, char * outstring, int dec);
 
 #endif
