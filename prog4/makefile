@@ -1,6 +1,6 @@
 all: opt_enc_d opt_enc keygen
 
-opt_enc_d: encrypt.o newtypes.o utils.o opt_enc_d.o
+opt_enc_d: encrypt.o newtypes.o utils.o opt_enc_d.o 
 	gcc -g -Wall -o opt_enc_d encrypt.o newtypes.o utils.o opt_enc_d.o -lm
 
 opt_enc: opt_enc.c utils.o
@@ -23,3 +23,6 @@ utils.o: utils.c utils.h
 
 clean:
 	rm *.o
+
+cleanall: clean
+	rm keygen opt_enc opt_enc_d encrypt

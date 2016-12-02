@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #ifndef UTILS_H
 #define UTILS_H
@@ -36,7 +37,11 @@ void printOutError(const char * outString, int newln);
 
 void error(const char *msg);
 
+void error2(const char *msg);
+
 void errorCloseSocket(const char *msg, int socketFD);
+
+void errorCloseSocketNoExit(const char *msg, int socketFD);
 
 int getRandom(int min, int max);
 

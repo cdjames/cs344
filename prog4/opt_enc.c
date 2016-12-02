@@ -55,13 +55,14 @@ int main(int argc, char *argv[])
 
 	// Set up the socket
 	socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
-	if (socketFD < 0) error("CLIENT: ERROR opening socket");
+	if (socketFD < 0) 
+		error2("CLIENT: ERROR opening socket");
 	
 	// Connect to server
 	int connected = connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 	printf("CLIENT: connected=%d\n", connected);
 	if (connected < 0) // Connect socket to address
-		error("CLIENT: ERROR connecting");
+		error2("CLIENT: ERROR connecting");
 	// printf("errno = %s\n", strerror(errno));
 
 	memset(buffer, '\0', hdShakeLen+1); // Clear out the buffer array
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
 	sendFail = sendAll(socketFD, buffer, &amountToSend); // Write to the server
 	// printf("amount sent = %d\n", amountToSend);
 	if (sendFail < 0) 
-		error("CLIENT: ERROR writing to socket");
+		errorCloseSocket("CLIENT: ERROR writing to socket", socketFD);
 	if (amountToSend < strlen(buffer)) 
 		printOut("CLIENT: WARNING: Not all data written to socket!", 1);
 
@@ -87,32 +88,36 @@ int main(int argc, char *argv[])
 	recvFail = recvAll(socketFD, &accepted, &amountToRecv); // Read int from the socket
 	
 	if (recvFail < 0) 
-		error("CLIENT: ERROR reading from socket");
+		errorCloseSocket("CLIENT: ERROR reading from socket", socketFD);
 	
 	printf("CLIENT: accepted = %d\n", accepted);
 	
 	if(accepted) {
-		// FILE * file;
-		// file = fopen(filepath,"r");
+		FILE * file;
+		file = fopen(argv[1],"r");
+
+		if (file == NULL)
+			errorCloseSocket("No such file", socketFD);
 
 		/* get plaintext */
 		memset(plaintext, '\0', maxBufferLen+1);
-		n = snprintf(plaintext, maxBufferLen+1, "%s", "DUMMY TEXT HERE");
+		if(fgets(plaintext, maxBufferLen, file) == NULL)
+			errorCloseSocket("Could not open file", socketFD);
+
+		// n = snprintf(plaintext, maxBufferLen+1, "%s", "DUMMY TEXT HERE");
+
+		
+		/* trim newline from string */
+		plaintext[strcspn(plaintext, "\n")] = '\0';
+		int ptLength = strlen(plaintext);
 
 		/* check your text and exit if not okay */
 		checkText(plaintext);
 
-		int ptLength = strlen(plaintext);
-		/* trim newline from string */
-		if(plaintext[ptLength] == '\n'){
-			plaintext[ptLength] = '\0';
-			ptLength -= 1;
-		}
-
 		/* send plaintext */
 		int sendFail = sendMsg(plaintext, socketFD);
 		if(sendFail < 0){
-			error("CLIENT: ERROR sending plaintext");
+			errorCloseSocket("CLIENT: ERROR sending plaintext", socketFD);
 		}
 
 		/* get key */
@@ -130,20 +135,20 @@ int main(int argc, char *argv[])
 		}
 
 		/* exit if key is too short */
-		if(keyLength > ptLength)
-			error("CLIENT: key is too short");
+		if(keyLength < ptLength)
+			errorCloseSocket("CLIENT: key is too short", socketFD);
 
 		/* otherwise send key */
 		sendFail = sendMsg(plaintext, socketFD);
 		if(sendFail < 0){
-			error("CLIENT: ERROR sending key");
+			errorCloseSocket("CLIENT: ERROR sending key", socketFD);
 		}
 
 		/* receive encrypted text */
 		memset(plaintext, '\0', maxBufferLen+1);
 		recvFail = recvMsg(plaintext, maxBufferLen+1, socketFD);
 		if(recvFail < 0)
-			error("CLIENT: ERROR reading encrypted text");
+			errorCloseSocket("CLIENT: ERROR reading encrypted text", socketFD);
 
 		/* print our encrypted text to standard out */
 		printOut(plaintext, 0);

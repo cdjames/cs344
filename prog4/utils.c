@@ -6,13 +6,19 @@ int sendAll(int socketFD, void * msg, int * amountToSend) {
 	int total = 0; // amount sent
 	int amt;
 	int bytesToSend = *amountToSend;
+	int returnThis = 0;
 	
 	while(total < *amountToSend){
 		// send
 		amt = send(socketFD, msg+total, bytesToSend, 0);
 		/* get out of loop on send error */
-		if(amt == -1)
+		if(amt == -1 || amt == 0){
+			if(amt == -1)
+				returnThis = amt;
+			else
+				returnThis = 1;
 			break;
+		}
 
 		total += amt;
 		bytesToSend -= amt;
@@ -22,10 +28,7 @@ int sendAll(int socketFD, void * msg, int * amountToSend) {
 	*amountToSend = total;
 	
 	/* return an error or success depending on result */
-	if(amt == -1)
-		return -1;
-	else
-		return 0;
+	return returnThis;
 }
 
 int sendMsg(char * text, int cnctFD){
@@ -36,8 +39,12 @@ int sendMsg(char * text, int cnctFD){
 
 	sendFail = sendAll(cnctFD, &sizeOfString, &amtToSend); // Read int from the socket
 	if (sendFail < 0) {
-		perror("ERROR reading from socket");
+		printOutError("ERROR reading from socket", 1);
 		return -1;
+	}
+	else if (sendFail > 0) {
+		printOutError("Socket was closed", 1);
+		return 1;
 	}
 	if (amtToSend < sizeof(sizeOfString)) 
 		printOut("WARNING: Not all data written to socket!", 1);
@@ -46,8 +53,12 @@ int sendMsg(char * text, int cnctFD){
 	amtToSend = sizeOfString;
 	sendFail = sendAll(cnctFD, text, &amtToSend); // Read the client's message from the socket
 	if (sendFail < 0) {
-		perror("ERROR reading from socket");
+		printOutError("ERROR writing to socket", 1);
 		return -1;
+	}
+	else if (sendFail > 0) {
+		printOutError("Socket was closed", 1);
+		return 1;
 	}
 	if (amtToSend < sizeOfString) 
 		printOut("WARNING: Not all data written to socket!", 1);
@@ -63,13 +74,20 @@ int recvAll(int socketFD, void * buf, int * amountToRecv) {
 	int total = 0; // amount received
 	int amt;
 	int bytesToRecv = *amountToRecv;
+	int returnThis = 0;
 	
 	while(total < *amountToRecv){
 		// send
+
 		amt = recv(socketFD, buf+total, bytesToRecv, 0);
 		/* get out of loop on send error */
-		if(amt == -1)
+		if(amt == -1 || amt == 0){
+			if(amt == -1)
+				returnThis = amt;
+			else
+				returnThis = 1;
 			break;
+		}
 
 		total += amt;
 		bytesToRecv -= amt;
@@ -79,10 +97,7 @@ int recvAll(int socketFD, void * buf, int * amountToRecv) {
 	*amountToRecv = total;
 	
 	/* return an error or success depending on result */
-	if(amt == -1)
-		return -1;
-	else
-		return 0;
+	return returnThis;
 }
 
 int recvMsg(char * buf, int buf_len, int cnctFD){
@@ -93,9 +108,14 @@ int recvMsg(char * buf, int buf_len, int cnctFD){
 
 	recvFail = recvAll(cnctFD, &sizeOfString, &amtToRecv); // Read int from the socket
 	if (recvFail < 0) {
-		perror("ERROR reading from socket");
+		printOutError("ERROR reading from socket", 1);
 		return -1;
+	} 
+	else if (recvFail > 0){
+		printOutError("Socket closed", 1);
+		return 1;
 	}
+
 	if (amtToRecv < sizeof(sizeOfString)) 
 		printOut("WARNING: Not all data read from socket!", 1);
 	// printf("SERVER: received size\n");
@@ -104,8 +124,12 @@ int recvMsg(char * buf, int buf_len, int cnctFD){
 	amtToRecv = sizeOfString;
 	recvFail = recvAll(cnctFD, buf, &amtToRecv); // Read the client's message from the socket
 	if (recvFail < 0) {
-		perror("ERROR reading from socket");
+		printOutError("ERROR reading from socket", 1);
 		return -1;
+	}
+	else if (recvFail > 0){
+		printOutError("Socket closed", 1);
+		return 1;
 	}
 	if (amtToRecv < sizeOfString) 
 		printOut("WARNING: Not all data read from socket!", 1);
@@ -146,6 +170,13 @@ void error(const char *msg) {
 	printOutError(msg, 1);
 	// perror(msg); 
 	exit(1); 
+} // Error function used for reporting issues
+
+void error2(const char *msg) { 
+	// fprintf(stderr, "%s\n", msg);
+	printOutError(msg, 1);
+	// perror(msg); 
+	exit(2); 
 } // Error function used for reporting issues
 
 void errorCloseSocket(const char *msg, int socketFD) { 

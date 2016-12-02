@@ -21,7 +21,12 @@ struct Pidkeeper doEncryptInChild(int cnctFD) ;
 
 int setUpSocket(struct sockaddr_in * serverAddress, int maxConn);
 
-
+void sendErrorToParent(int pipe_status, int pipeFD, long int msg_size){
+	if(pipe_status != -1){
+		int exitSignal = 1;	
+		write(pipeFD, &exitSignal, msg_size);
+	}
+}
 
 int main(int argc, char *argv[])
 {
@@ -108,6 +113,14 @@ int main(int argc, char *argv[])
 						if(numConnections < maxConnections) {
 							// Accept a connection, blocking if one is not available until one connects
 							establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
+							
+							// 2 Sec Timeout (didn't seem to work)
+							struct timeval tv;
+							tv.tv_sec  = 2;  
+							tv.tv_usec = 0;
+							setsockopt( establishedConnectionFD, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+							setsockopt( establishedConnectionFD, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+							
 							if (establishedConnectionFD < 0) 
 								error("SERVER: ERROR on accept");
 							/* if no error, add new connection to your set */
@@ -156,6 +169,7 @@ int main(int argc, char *argv[])
 										fdmax = listenSocketFD;
 								}
 							}
+							wpid = waitpid(pid, &status, WNOHANG);
 						}
 	        		}
         		} // END FD_ISSET if	
@@ -232,7 +246,7 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		exitSignal = 0, // send this data to parent
 		stat_msg,	// receive data here
 		pipe_status; // save status of pipe
-	long int msg_size = sizeof(send);
+	long int msg_size = sizeof(exitSignal);
 
 	if( (pipe_status = pipe(pipeFDs)) == -1)
 		perror("failed to set up pipe");
@@ -268,6 +282,11 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
 			return new_PK(pid, -1);
 		}
+		else if (recvFail > 0){
+			errorCloseSocketNoExit("Socket closed by client", cnctFD);
+			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
+			return new_PK(pid, -1);
+		}
 		printf("SERVER: handshake = %s\n", hdShakeBuffer);
 
 		/* determine if correct program is connecting */
@@ -275,12 +294,13 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 			amtToSend = sizeof(accepted);
 		
 		if(strcmp(hdShakeBuffer, PROG_CODE) == 0)
-			accepted = 1;
+			accepted = 1; // accept the server
 		// 	printf("SERVER: I recognize you: \"%s\"\n", hdShakeBuffer);
 		// }
 		// else {
 		// 	printf("SERVER: I do not recognize you: \"%s\"\n", hdShakeBuffer);
 		// }
+
 		/* send a code accepting or denying the connection */
 		sendFail = sendAll(cnctFD, &accepted, &amtToSend);
 		if (!accepted) {
@@ -295,6 +315,11 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
 			return new_PK(pid, -1);
 		}
+		else if (recvFail > 0){
+			errorCloseSocketNoExit("Socket closed by client", cnctFD);
+			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
+			return new_PK(pid, -1);
+		}
 		printf("SERVER: read: %s\n", ptBuffer);
 
 		/* read the key */
@@ -302,6 +327,11 @@ struct Pidkeeper doEncryptInChild(int cnctFD) {
 		recvFail = recvMsg(keyBuffer, maxBufferLen+1, cnctFD);
 		if (recvFail < 0) {
 			errorCloseSocketNoExit("SERVER: ERROR reading from socket", cnctFD);
+			return new_PK(pid, -1);
+		}
+		else if (recvFail > 0){
+			errorCloseSocketNoExit("Socket closed by client", cnctFD);
+			sendErrorToParent(pipe_status, pipeFDs[1], msg_size);
 			return new_PK(pid, -1);
 		}
 		printf("SERVER: read: %s\n", keyBuffer);
